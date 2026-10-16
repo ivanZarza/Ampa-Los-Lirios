@@ -1,0 +1,172 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireAdmin } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+let mensaje = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action')?.toString();
+
+  if (action === 'create' || action === 'update') {
+    const payload = {
+      titulo: form.get('titulo')?.toString() || '',
+      descripcion: form.get('descripcion')?.toString() || '',
+      fecha_inicio: form.get('fecha_inicio')?.toString() || '',
+      fecha_fin: form.get('fecha_fin')?.toString() || null,
+      lugar: form.get('lugar')?.toString() || '',
+      publicado: form.get('publicado') === 'on',
+    };
+
+    if (!payload.titulo || !payload.fecha_inicio) {
+      error = 'El título y la fecha de inicio son obligatorios.';
+    } else if (action === 'create') {
+      const { error: err } = await service.from('eventos').insert(payload);
+      if (err) error = 'Error al crear el evento: ' + err.message;
+      else mensaje = 'Evento creado correctamente.';
+    } else {
+      const id = form.get('id')?.toString();
+      const { error: err } = await service.from('eventos').update(payload).eq('id', id);
+      if (err) error = 'Error al actualizar: ' + err.message;
+      else mensaje = 'Evento actualizado.';
+    }
+  }
+
+  if (action === 'delete') {
+    const id = form.get('id')?.toString();
+    const { error: err } = await service.from('eventos').delete().eq('id', id);
+    if (err) error = 'Error al borrar: ' + err.message;
+    else mensaje = 'Evento borrado.';
+  }
+}
+
+const { data: eventos } = await service
+  .from('eventos')
+  .select('*')
+  .order('fecha_inicio', { ascending: false });
+
+const editId = Astro.url.searchParams.get('editar');
+const editEvento = editId ? eventos?.find(e => e.id === editId) : null;
+const showForm = Astro.url.searchParams.has('nuevo') || editEvento;
+---
+
+<Admin title="Gestionar fiestas">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Fiestas y eventos</h1>
+    {!showForm && (
+      <a href="/admin/fiestas?nuevo" class="btn-primary text-sm">+ Nuevo evento</a>
+    )}
+  </div>
+
+  {mensaje && (
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">{mensaje}</div>
+  )}
+  {error && (
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+  )}
+
+  {showForm && (
+    <div class="card p-6 mb-8">
+      <h2 class="text-lg font-bold mb-4">{editEvento ? 'Editar evento' : 'Nuevo evento'}</h2>
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="_action" value={editEvento ? 'update' : 'create'} />
+        {editEvento && <input type="hidden" name="id" value={editEvento.id} />}
+
+        <div>
+          <label for="titulo" class="label-field">Título *</label>
+          <input type="text" id="titulo" name="titulo" required class="input-field" value={editEvento?.titulo || ''} />
+        </div>
+
+        <div>
+          <label for="descripcion" class="label-field">Descripción</label>
+          <textarea id="descripcion" name="descripcion" rows="3" class="input-field">{editEvento?.descripcion || ''}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="fecha_inicio" class="label-field">Fecha y hora de inicio *</label>
+            <input
+              type="datetime-local"
+              id="fecha_inicio"
+              name="fecha_inicio"
+              required
+              class="input-field"
+              value={editEvento?.fecha_inicio ? new Date(editEvento.fecha_inicio).toISOString().slice(0, 16) : ''}
+            />
+          </div>
+          <div>
+            <label for="fecha_fin" class="label-field">Fecha y hora de fin</label>
+            <input
+              type="datetime-local"
+              id="fecha_fin"
+              name="fecha_fin"
+              class="input-field"
+              value={editEvento?.fecha_fin ? new Date(editEvento.fecha_fin).toISOString().slice(0, 16) : ''}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="lugar" class="label-field">Lugar</label>
+          <input type="text" id="lugar" name="lugar" class="input-field" value={editEvento?.lugar || ''} />
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="publicado"
+            name="publicado"
+            class="w-4 h-4 text-verde-600 rounded border-gray-300 focus:ring-verde-500"
+            checked={editEvento ? editEvento.publicado : true}
+          />
+          <label for="publicado" class="text-sm font-medium text-gray-700">Publicado (visible en la web)</label>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary text-sm">{editEvento ? 'Guardar cambios' : 'Crear evento'}</button>
+          <a href="/admin/fiestas" class="btn-outline text-sm">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  )}
+
+  <!-- Lista de eventos -->
+  {eventos && eventos.length > 0 ? (
+    <div class="space-y-3">
+      {eventos.map((e) => (
+        <div class="card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-gray-900 truncate">{e.titulo}</h3>
+              {!e.publicado && (
+                <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Borrador</span>
+              )}
+            </div>
+            <p class="text-sm text-gray-500">
+              {new Date(e.fecha_inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {e.lugar && ` · ${e.lugar}`}
+            </p>
+          </div>
+          <div class="flex gap-2 flex-shrink-0">
+            <a href={`/admin/fiestas?editar=${e.id}`} class="btn-outline text-sm !px-3 !py-1.5">Editar</a>
+            <form method="POST" onsubmit="return confirm('¿Seguro que quieres borrar este evento?')">
+              <input type="hidden" name="_action" value="delete" />
+              <input type="hidden" name="id" value={e.id} />
+              <button type="submit" class="btn-danger !px-3 !py-1.5">Borrar</button>
+            </form>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div class="bg-gray-50 rounded-xl p-8 text-center">
+      <p class="text-gray-500">No hay eventos todavía.</p>
+    </div>
+  )}
+</Admin>

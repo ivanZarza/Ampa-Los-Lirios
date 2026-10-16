@@ -1,0 +1,45 @@
+---
+interface Props {
+  nombre: string;
+  logo_url?: string | null;
+  descripcion_corta?: string | null;
+  ventaja_socios?: string | null;
+  web_url: string;
+}
+
+const { nombre, logo_url, descripcion_corta, ventaja_socios, web_url } = Astro.props;
+---
+
+<article class="card p-5 flex flex-col items-center text-center h-full">
+  {logo_url ? (
+    <img
+      src={logo_url}
+      alt={`Logo de ${nombre}`}
+      class="w-24 h-24 object-contain mb-4"
+      loading="lazy"
+    />
+  ) : (
+    <div class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center mb-4 text-3xl text-gray-400">
+      🏪
+    </div>
+  )}
+  <h3 class="text-lg font-bold text-gray-900">{nombre}</h3>
+  {descripcion_corta && (
+    <p class="text-gray-600 text-sm mt-2 leading-relaxed">{descripcion_corta}</p>
+  )}
+  {ventaja_socios && (
+    <div class="mt-3 bg-malva-50 text-malva-700 text-sm px-3 py-2 rounded-lg w-full">
+      🎫 {ventaja_socios}
+    </div>
+  )}
+  <div class="mt-auto pt-4">
+    <a
+      href={web_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="btn-outline text-sm !px-4 !py-2"
+    >
+      Visitar web ↗
+    </a>
+  </div>
+</article>

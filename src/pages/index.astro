@@ -1,0 +1,120 @@
+---
+import Base from '../layouts/Base.astro';
+import EventCard from '../components/EventCard.astro';
+import { supabase } from '../lib/supabase';
+
+const now = new Date().toISOString();
+
+const { data: proximoEvento } = await supabase
+  .from('eventos')
+  .select('*')
+  .eq('publicado', true)
+  .gte('fecha_inicio', now)
+  .order('fecha_inicio', { ascending: true })
+  .limit(1)
+  .single();
+
+const { data: colaboradores } = await supabase
+  .from('colaboradores')
+  .select('id, nombre, logo_ruta, web_url')
+  .eq('activo', true)
+  .eq('destacado', true)
+  .order('orden', { ascending: true });
+
+const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos`;
+---
+
+<Base title="Inicio" description="AMPA Los Lirios — Asociación de Madres y Padres de Alumnos. Fiestas, actividades y colaboradores.">
+  <!-- Hero -->
+  <section class="bg-gradient-to-br from-verde-50 via-white to-malva-50 py-16 md:py-24">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold text-verde-700 mb-4">
+        AMPA Los Lirios
+      </h1>
+      <p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+        Somos la Asociación de Madres y Padres de Alumnos. Trabajamos juntos por una comunidad
+        educativa mejor para nuestros hijos e hijas.
+      </p>
+      <div class="mt-8 flex flex-wrap justify-center gap-4">
+        <a href="/fiestas" class="btn-primary">Ver próximas fiestas</a>
+        <a href="/contacto" class="btn-outline">Hazte socio/a</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Próximo evento -->
+  {proximoEvento && (
+    <section class="max-w-4xl mx-auto px-4 py-12">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Próximo evento</h2>
+      <div class="max-w-xl mx-auto">
+        <EventCard {...proximoEvento} destacado />
+      </div>
+      <div class="text-center mt-6">
+        <a href="/fiestas" class="text-verde-600 hover:text-verde-700 font-medium text-sm">
+          Ver todos los eventos →
+        </a>
+      </div>
+    </section>
+  )}
+
+  <!-- Qué hacemos -->
+  <section class="bg-gray-50 py-12">
+    <div class="max-w-4xl mx-auto px-4">
+      <h2 class="text-2xl font-bold text-gray-900 mb-8 text-center">¿Qué hacemos?</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="text-center p-6">
+          <div class="text-4xl mb-3">🎉</div>
+          <h3 class="font-bold text-gray-900 mb-2">Fiestas y eventos</h3>
+          <p class="text-gray-600 text-sm">Organizamos fiestas, excursiones y actividades para toda la comunidad educativa.</p>
+        </div>
+        <div class="text-center p-6">
+          <div class="text-4xl mb-3">🤝</div>
+          <h3 class="font-bold text-gray-900 mb-2">Colaboradores</h3>
+          <p class="text-gray-600 text-sm">Acuerdos con comercios locales que ofrecen ventajas a las familias socias.</p>
+        </div>
+        <div class="text-center p-6">
+          <div class="text-4xl mb-3">💬</div>
+          <h3 class="font-bold text-gray-900 mb-2">Representación</h3>
+          <p class="text-gray-600 text-sm">Somos la voz de las familias ante el colegio y la administración educativa.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Colaboradores destacados -->
+  {colaboradores && colaboradores.length > 0 && (
+    <section class="py-12">
+      <div class="max-w-5xl mx-auto px-4">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2 text-center">Nuestros colaboradores</h2>
+        <p class="text-gray-500 text-center mb-8 text-sm">Comercios que apoyan a las familias del AMPA</p>
+        <div class="flex flex-wrap justify-center items-center gap-8">
+          {colaboradores.map((c) => (
+            <a
+              href={c.web_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block grayscale hover:grayscale-0 transition-all duration-300 opacity-70 hover:opacity-100"
+              title={c.nombre}
+            >
+              {c.logo_ruta ? (
+                <img
+                  src={`${bucketUrl}/${c.logo_ruta}`}
+                  alt={`Logo de ${c.nombre}`}
+                  class="h-12 w-auto max-w-[120px] object-contain"
+                  loading="lazy"
+                />
+              ) : (
+                <span class="text-sm font-semibold text-gray-500">{c.nombre}</span>
+              )}
+            </a>
+          ))}
+        </div>
+        <div class="text-center mt-6">
+          <a href="/colaboradores" class="text-verde-600 hover:text-verde-700 font-medium text-sm">
+            Ver todos los colaboradores →
+          </a>
+        </div>
+      </div>
+    </section>
+  )}
+</Base>

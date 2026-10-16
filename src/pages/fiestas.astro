@@ -1,0 +1,51 @@
+---
+import Base from '../layouts/Base.astro';
+import EventCard from '../components/EventCard.astro';
+import { supabase } from '../lib/supabase';
+
+const now = new Date().toISOString();
+
+const { data: proximos } = await supabase
+  .from('eventos')
+  .select('*')
+  .eq('publicado', true)
+  .gte('fecha_inicio', now)
+  .order('fecha_inicio', { ascending: true });
+
+const { data: pasados } = await supabase
+  .from('eventos')
+  .select('*')
+  .eq('publicado', true)
+  .lt('fecha_inicio', now)
+  .order('fecha_inicio', { ascending: false })
+  .limit(20);
+---
+
+<Base title="Fiestas y eventos" description="Calendario de fiestas y eventos del AMPA Los Lirios.">
+  <section class="max-w-4xl mx-auto px-4 py-12">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Fiestas y eventos</h1>
+    <p class="text-gray-500 mb-8">Todas las actividades organizadas por el AMPA</p>
+
+    <!-- Próximos -->
+    <h2 class="text-xl font-bold text-verde-700 mb-4">Próximos eventos</h2>
+    {proximos && proximos.length > 0 ? (
+      <div class="space-y-4 mb-12">
+        {proximos.map((evento) => <EventCard {...evento} />)}
+      </div>
+    ) : (
+      <div class="bg-gray-50 rounded-xl p-8 text-center mb-12">
+        <p class="text-gray-500">No hay eventos próximos por ahora. ¡Vuelve pronto!</p>
+      </div>
+    )}
+
+    <!-- Pasados -->
+    {pasados && pasados.length > 0 && (
+      <>
+        <h2 class="text-xl font-bold text-gray-500 mb-4">Eventos pasados</h2>
+        <div class="space-y-4 opacity-75">
+          {pasados.map((evento) => <EventCard {...evento} />)}
+        </div>
+      </>
+    )}
+  </section>
+</Base>

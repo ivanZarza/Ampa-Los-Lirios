@@ -1,0 +1,55 @@
+---
+interface Props {
+  titulo: string;
+  descripcion?: string | null;
+  fecha_inicio: string;
+  fecha_fin?: string | null;
+  lugar?: string | null;
+  destacado?: boolean;
+}
+
+const { titulo, descripcion, fecha_inicio, fecha_fin, lugar, destacado } = Astro.props;
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+---
+
+<article class:list={['card p-5', destacado && 'ring-2 ring-verde-400']}>
+  <div class="flex items-start gap-4">
+    <div class="flex-shrink-0 bg-verde-50 text-verde-700 rounded-lg p-3 text-center min-w-[60px]">
+      <div class="text-2xl font-bold leading-none">
+        {new Date(fecha_inicio).getDate()}
+      </div>
+      <div class="text-xs uppercase mt-1">
+        {new Date(fecha_inicio).toLocaleDateString('es-ES', { month: 'short' })}
+      </div>
+    </div>
+    <div class="flex-1 min-w-0">
+      <h3 class="text-lg font-bold text-gray-900">{titulo}</h3>
+      <p class="text-sm text-gray-500 mt-1">
+        {formatDate(fecha_inicio)}
+        {fecha_fin && ` — ${formatDate(fecha_fin)}`}
+        {' · '}{formatTime(fecha_inicio)}
+      </p>
+      {lugar && (
+        <p class="text-sm text-malva-600 mt-1">📍 {lugar}</p>
+      )}
+      {descripcion && (
+        <p class="text-gray-600 mt-2 text-sm leading-relaxed">{descripcion}</p>
+      )}
+    </div>
+  </div>
+</article>

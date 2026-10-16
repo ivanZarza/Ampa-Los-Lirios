@@ -1,0 +1,41 @@
+---
+import Base from '../layouts/Base.astro';
+import PartnerCard from '../components/PartnerCard.astro';
+import { supabase } from '../lib/supabase';
+
+const { data: colaboradores } = await supabase
+  .from('colaboradores')
+  .select('*')
+  .eq('activo', true)
+  .order('orden', { ascending: true });
+
+const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos`;
+---
+
+<Base title="Colaboradores" description="Comercios y empresas que colaboran con el AMPA Los Lirios y ofrecen ventajas a las familias socias.">
+  <section class="max-w-5xl mx-auto px-4 py-12">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Nuestros colaboradores</h1>
+    <p class="text-gray-500 mb-8">
+      Comercios y empresas que apoyan al AMPA y ofrecen ventajas especiales a las familias socias.
+    </p>
+
+    {colaboradores && colaboradores.length > 0 ? (
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {colaboradores.map((c) => (
+          <PartnerCard
+            nombre={c.nombre}
+            logo_url={c.logo_ruta ? `${bucketUrl}/${c.logo_ruta}` : null}
+            descripcion_corta={c.descripcion_corta}
+            ventaja_socios={c.ventaja_socios}
+            web_url={c.web_url}
+          />
+        ))}
+      </div>
+    ) : (
+      <div class="bg-gray-50 rounded-xl p-12 text-center">
+        <div class="text-4xl mb-3">🏪</div>
+        <p class="text-gray-500">Próximamente publicaremos la lista de colaboradores.</p>
+      </div>
+    )}
+  </section>
+</Base>

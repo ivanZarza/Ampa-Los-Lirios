@@ -1,0 +1,344 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireAdmin } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+let mensaje = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action')?.toString();
+
+  if (action === 'create_album') {
+    const payload = {
+      titulo: form.get('titulo')?.toString() || '',
+      fecha: form.get('fecha')?.toString() || null,
+      evento_id: form.get('evento_id')?.toString() || null,
+      publicado: form.get('publicado') === 'on',
+    };
+    if (!payload.titulo) {
+      error = 'El título del álbum es obligatorio.';
+    } else {
+      const { error: err } = await service.from('albumes').insert(payload);
+      if (err) error = 'Error al crear el álbum: ' + err.message;
+      else mensaje = 'Álbum creado. Ahora puedes subir fotos.';
+    }
+  }
+
+  if (action === 'update_album') {
+    const id = form.get('id')?.toString();
+    const payload = {
+      titulo: form.get('titulo')?.toString() || '',
+      fecha: form.get('fecha')?.toString() || null,
+      publicado: form.get('publicado') === 'on',
+    };
+    const { error: err } = await service.from('albumes').update(payload).eq('id', id);
+    if (err) error = 'Error al actualizar: ' + err.message;
+    else mensaje = 'Álbum actualizado.';
+  }
+
+  if (action === 'delete_album') {
+    const id = form.get('id')?.toString();
+    const { data: fotos } = await service.from('fotos').select('ruta_storage').eq('album_id', id);
+    if (fotos && fotos.length > 0) {
+      await service.storage.from('fotos').remove(fotos.map(f => f.ruta_storage));
+    }
+    const { error: err } = await service.from('albumes').delete().eq('id', id);
+    if (err) error = 'Error al borrar: ' + err.message;
+    else mensaje = 'Álbum y sus fotos borrados.';
+  }
+
+  if (action === 'delete_foto') {
+    const id = form.get('id')?.toString();
+    const { data: foto } = await service.from('fotos').select('ruta_storage').eq('id', id).single();
+    if (foto) {
+      await service.storage.from('fotos').remove([foto.ruta_storage]);
+      const { error: err } = await service.from('fotos').delete().eq('id', id);
+      if (err) error = 'Error al borrar la foto: ' + err.message;
+      else mensaje = 'Foto borrada.';
+    }
+  }
+}
+
+const { data: albumes } = await service
+  .from('albumes')
+  .select(`
+    id, titulo, fecha, publicado,
+    fotos (id, ruta_storage, pie, orden)
+  `)
+  .order('fecha', { ascending: false });
+
+const albumId = Astro.url.searchParams.get('album');
+const selectedAlbum = albumId ? albumes?.find(a => a.id === albumId) : null;
+const showNewAlbum = Astro.url.searchParams.has('nuevo');
+const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos`;
+---
+
+<Admin title="Gestionar galería">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Galería de fotos</h1>
+    {!showNewAlbum && !selectedAlbum && (
+      <a href="/admin/galeria?nuevo" class="btn-primary text-sm">+ Nuevo álbum</a>
+    )}
+  </div>
+
+  {mensaje && (
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">{mensaje}</div>
+  )}
+  {error && (
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+  )}
+
+  {/* Nuevo álbum */}
+  {showNewAlbum && (
+    <div class="card p-6 mb-8">
+      <h2 class="text-lg font-bold mb-4">Nuevo álbum</h2>
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="_action" value="create_album" />
+        <div>
+          <label for="titulo" class="label-field">Título *</label>
+          <input type="text" id="titulo" name="titulo" required class="input-field" />
+        </div>
+        <div>
+          <label for="fecha" class="label-field">Fecha</label>
+          <input type="date" id="fecha" name="fecha" class="input-field" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="publicado" name="publicado" class="w-4 h-4 text-verde-600 rounded" checked />
+          <label for="publicado" class="text-sm font-medium text-gray-700">Publicado</label>
+        </div>
+        <div class="flex gap-3">
+          <button type="submit" class="btn-primary text-sm">Crear álbum</button>
+          <a href="/admin/galeria" class="btn-outline text-sm">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  )}
+
+  {/* Detalle del álbum seleccionado */}
+  {selectedAlbum && (
+    <div class="mb-8">
+      <div class="flex items-center gap-3 mb-4">
+        <a href="/admin/galeria" class="text-verde-600 hover:text-verde-700 font-medium text-sm">← Volver</a>
+        <h2 class="text-xl font-bold text-gray-900">{selectedAlbum.titulo}</h2>
+        {!selectedAlbum.publicado && <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Borrador</span>}
+      </div>
+
+      {/* Editar álbum */}
+      <details class="card p-4 mb-4">
+        <summary class="cursor-pointer font-medium text-sm text-gray-700">Editar datos del álbum</summary>
+        <form method="POST" class="space-y-3 mt-4">
+          <input type="hidden" name="_action" value="update_album" />
+          <input type="hidden" name="id" value={selectedAlbum.id} />
+          <div>
+            <label class="label-field">Título</label>
+            <input type="text" name="titulo" required class="input-field" value={selectedAlbum.titulo} />
+          </div>
+          <div>
+            <label class="label-field">Fecha</label>
+            <input type="date" name="fecha" class="input-field" value={selectedAlbum.fecha || ''} />
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" name="publicado" class="w-4 h-4 text-verde-600 rounded" checked={selectedAlbum.publicado} />
+            <label class="text-sm text-gray-700">Publicado</label>
+          </div>
+          <button type="submit" class="btn-primary text-sm">Guardar</button>
+        </form>
+      </details>
+
+      {/* Subir fotos */}
+      <div class="card p-4 mb-4">
+        <h3 class="font-bold text-sm text-gray-700 mb-3">Subir fotos</h3>
+        <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-verde-400 transition-colors">
+          <input
+            type="file"
+            id="foto-input"
+            accept="image/*"
+            multiple
+            class="hidden"
+          />
+          <label for="foto-input" class="cursor-pointer">
+            <div class="text-3xl mb-2">📸</div>
+            <p class="text-sm text-gray-600">Pulsa aquí o arrastra las fotos</p>
+            <p class="text-xs text-gray-400 mt-1">Se redimensionan y convierten a WebP automáticamente</p>
+          </label>
+        </div>
+        <div id="upload-progress" class="mt-3 hidden">
+          <div class="flex items-center gap-2 text-sm text-gray-600">
+            <div class="animate-spin w-4 h-4 border-2 border-verde-500 border-t-transparent rounded-full"></div>
+            <span id="progress-text">Subiendo...</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div id="progress-bar" class="bg-verde-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+        <div id="upload-errors" class="mt-3"></div>
+      </div>
+
+      {/* Fotos existentes */}
+      {selectedAlbum.fotos && (selectedAlbum.fotos as any[]).length > 0 ? (
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {(selectedAlbum.fotos as any[]).sort((a: any, b: any) => a.orden - b.orden).map((foto: any) => (
+            <div class="relative group">
+              <img
+                src={`${bucketUrl}/${foto.ruta_storage}`}
+                alt={foto.pie || ''}
+                class="aspect-square object-cover rounded-lg w-full"
+                loading="lazy"
+              />
+              <form method="POST" class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <input type="hidden" name="_action" value="delete_foto" />
+                <input type="hidden" name="id" value={foto.id} />
+                <button
+                  type="submit"
+                  class="bg-red-600 text-white w-7 h-7 rounded-full text-xs hover:bg-red-700 flex items-center justify-center"
+                  onclick="return confirm('¿Borrar esta foto?')"
+                  title="Borrar foto"
+                >✕</button>
+              </form>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="text-gray-400 text-sm text-center py-4">Este álbum no tiene fotos aún.</p>
+      )}
+    </div>
+  )}
+
+  {/* Lista de álbumes */}
+  {!selectedAlbum && !showNewAlbum && (
+    <>
+      {albumes && albumes.length > 0 ? (
+        <div class="space-y-3">
+          {albumes.map((a) => (
+            <div class="card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="font-bold text-gray-900">{a.titulo}</h3>
+                  {!a.publicado && <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Borrador</span>}
+                </div>
+                <p class="text-sm text-gray-500">
+                  {a.fecha ? new Date(a.fecha).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : 'Sin fecha'}
+                  {' · '}{(a.fotos as any[])?.length || 0} fotos
+                </p>
+              </div>
+              <div class="flex gap-2 flex-shrink-0">
+                <a href={`/admin/galeria?album=${a.id}`} class="btn-primary text-sm !px-3 !py-1.5">Gestionar</a>
+                <form method="POST" onsubmit="return confirm('¿Borrar este álbum y todas sus fotos?')">
+                  <input type="hidden" name="_action" value="delete_album" />
+                  <input type="hidden" name="id" value={a.id} />
+                  <button type="submit" class="btn-danger !px-3 !py-1.5">Borrar</button>
+                </form>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="bg-gray-50 rounded-xl p-8 text-center">
+          <p class="text-gray-500">No hay álbumes todavía.</p>
+        </div>
+      )}
+    </>
+  )}
+</Admin>
+
+{selectedAlbum && (
+  <script define:vars={{
+    albumId: selectedAlbum.id,
+    supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
+    supabaseKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+  }}>
+    const MAX_DIM = 1600;
+    const QUALITY = 0.8;
+
+    async function processImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let { width, height } = img;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
+            else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('No blob')), 'image/webp', QUALITY);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Error')); };
+        img.src = url;
+      });
+    }
+
+    const input = document.getElementById('foto-input');
+    const progressArea = document.getElementById('upload-progress');
+    const progressText = document.getElementById('progress-text');
+    const progressBar = document.getElementById('progress-bar');
+    const errorsArea = document.getElementById('upload-errors');
+
+    input?.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      progressArea.classList.remove('hidden');
+      errorsArea.innerHTML = '';
+      let done = 0;
+      const errors = [];
+
+      for (const file of files) {
+        try {
+          progressText.textContent = `Procesando ${done + 1} de ${files.length}...`;
+          const blob = await processImage(file);
+          const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+
+          const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/fotos/${fileName}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'image/webp',
+            },
+            body: blob,
+          });
+
+          if (!uploadRes.ok) throw new Error('Upload failed');
+
+          const insertRes = await fetch(`${supabaseUrl}/rest/v1/fotos`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseKey}`,
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({
+              album_id: albumId,
+              ruta_storage: fileName,
+              orden: done,
+            }),
+          });
+
+          if (!insertRes.ok) throw new Error('Insert failed');
+        } catch (err) {
+          errors.push(file.name);
+        }
+        done++;
+        progressBar.style.width = `${Math.round(done / files.length * 100)}%`;
+      }
+
+      progressText.textContent = `${done - errors.length} de ${files.length} fotos subidas.`;
+      if (errors.length) {
+        errorsArea.innerHTML = `<p class="text-red-600 text-sm">Error al subir: ${errors.join(', ')}</p>`;
+      }
+
+      setTimeout(() => location.reload(), 1500);
+    });
+  </script>
+)}
