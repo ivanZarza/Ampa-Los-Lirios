@@ -35,10 +35,19 @@ const cromosData = HARDCODED.map(h => {
     imageUrl: db?.imagen_ruta ? `${bucketUrl}/${db.imagen_ruta}` : null,
   };
 });
+
+let musicUrl: string | null = null;
+try {
+  const { data: files } = await supabase.storage.from('cromos').list();
+  const musicFile = files?.find((f: any) => f.name.startsWith('celebration-music'));
+  if (musicFile) {
+    musicUrl = `${bucketUrl}/${musicFile.name}`;
+  }
+} catch {}
 ---
 
 <!-- Cromo data for client -->
-<div id="cromos-config" data-cromos={JSON.stringify(cromosData)} style="display:none"></div>
+<div id="cromos-config" data-cromos={JSON.stringify(cromosData)} data-music={musicUrl || ''} style="display:none"></div>
 
 <!-- Hidden ladybug (secret 2) -->
 <div
@@ -90,7 +99,7 @@ const cromosData = HARDCODED.map(h => {
   </div>
 </div>
 
-<!-- Celebration overlay -->
+<!-- Celebration overlay (single cromo) -->
 <div id="celebration" class="fixed inset-0 z-[300] flex items-center justify-center p-4
      opacity-0 pointer-events-none transition-opacity duration-300">
   <div id="celeb-card" class="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-xs w-full
@@ -105,6 +114,35 @@ const cromosData = HARDCODED.map(h => {
 
 <!-- Particle container -->
 <div id="particles" class="fixed inset-0 pointer-events-none z-[299] overflow-hidden" aria-hidden="true"></div>
+
+<!-- Grand finale overlay (complete collection) -->
+<div id="grand-finale" class="fixed inset-0 z-[400]"
+     style="opacity:0; pointer-events:none; transition: opacity 1.2s ease">
+  <div class="absolute inset-0 bg-gradient-to-b from-[#070720] via-[#0e0e3a] to-[#070720]"></div>
+  <div id="finale-stars" class="absolute inset-0 overflow-hidden"></div>
+  <div id="finale-confetti-box" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+  <div class="relative z-10 flex flex-col items-center justify-center h-full px-6 text-center">
+    <div id="finale-characters" class="absolute inset-0 pointer-events-none"></div>
+    <p id="finale-question" class="text-white/90 text-xl md:text-2xl font-medium max-w-md leading-relaxed"
+       style="opacity:0; transition: opacity 1.2s ease">
+      ¿Sabes cuál es el secreto de la fórmula de la felicidad?
+    </p>
+    <h1 id="finale-answer" class="finale-glow mt-4"
+        style="opacity:0; transform:scale(0.5); transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1)">
+      ¡ERES TÚ!
+    </h1>
+    <p id="finale-subtitle" class="text-white/50 text-base md:text-lg mt-6 max-w-sm"
+       style="opacity:0; transition: opacity 1s ease">
+      Has descubierto todos los secretos de Los Lirios 🌿
+    </p>
+    <button id="finale-close" class="mt-10 px-8 py-3 bg-white/10 backdrop-blur-sm text-white/80 rounded-full
+             border border-white/20 hover:bg-white/20 hover:text-white transition-all duration-300
+             cursor-pointer text-sm tracking-wide"
+             style="opacity:0; pointer-events:none; transition: opacity 0.8s ease">
+      Volver a la realidad
+    </button>
+  </div>
+</div>
 
 <style>
   @keyframes particle-burst {
@@ -154,6 +192,55 @@ const cromosData = HARDCODED.map(h => {
     50% { transform: scale(1.15); }
     100% { transform: scale(1); }
   }
+
+  /* === Grand finale === */
+  .finale-glow {
+    font-size: clamp(3rem, 14vw, 9rem);
+    font-weight: 900;
+    line-height: 1;
+    background: linear-gradient(135deg, #ffd700, #ffaa00, #ff8c00, #ffd700);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.5)) drop-shadow(0 0 80px rgba(255, 170, 0, 0.25));
+    animation: glow-shift 3s ease-in-out infinite;
+  }
+  @keyframes glow-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  .finale-star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--dur) ease-in-out var(--del) infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.1; transform: scale(1); }
+    50% { opacity: 1; transform: scale(2); }
+  }
+  .finale-char {
+    position: absolute;
+    animation: fchar var(--dur) ease-in-out var(--del) infinite;
+    filter: drop-shadow(0 0 12px rgba(255,255,255,0.35));
+  }
+  @keyframes fchar {
+    0%, 100% { transform: translate(-50%,-50%) translateY(0) rotate(0deg); }
+    25% { transform: translate(-50%,-50%) translateY(-18px) rotate(6deg); }
+    75% { transform: translate(-50%,-50%) translateY(12px) rotate(-4deg); }
+  }
+  .finale-confetti {
+    position: absolute;
+    top: -12px;
+    pointer-events: none;
+    animation: fconf var(--dur) linear var(--del) forwards;
+  }
+  @keyframes fconf {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    80% { opacity: 0.7; }
+    100% { transform: translateY(100vh) rotate(1080deg); opacity: 0; }
+  }
 </style>
 
 <script>
@@ -181,7 +268,14 @@ const cromosData = HARDCODED.map(h => {
     try { return JSON.parse(el.dataset.cromos || '[]'); } catch { return []; }
   }
 
+  function loadMusicUrl(): string | null {
+    const el = document.getElementById('cromos-config');
+    const url = el?.dataset.music;
+    return url || null;
+  }
+
   let CROMOS = loadCromos();
+  let MUSIC_URL = loadMusicUrl();
 
   function getFound(): Set<string> {
     try {
@@ -211,6 +305,14 @@ const cromosData = HARDCODED.map(h => {
   const celebDesc    = document.getElementById('celeb-desc')!;
   const celebRarity  = document.getElementById('celeb-rarity')!;
   const particles    = document.getElementById('particles')!;
+  const grandFinale     = document.getElementById('grand-finale')!;
+  const finaleStars     = document.getElementById('finale-stars')!;
+  const finaleQuestion  = document.getElementById('finale-question')!;
+  const finaleAnswer    = document.getElementById('finale-answer')!;
+  const finaleSubtitle  = document.getElementById('finale-subtitle')!;
+  const finaleClose     = document.getElementById('finale-close')!;
+  const finaleChars     = document.getElementById('finale-characters')!;
+  const finaleConfetti  = document.getElementById('finale-confetti-box')!;
 
   function cromoVisualHTML(cromo: Cromo, sizeClass: string, imgClass: string): string {
     if (cromo.imageUrl) {
@@ -262,9 +364,16 @@ const cromosData = HARDCODED.map(h => {
     });
 
     const unfound = CROMOS.filter(c => !found.has(c.id));
-    albumHint.textContent = unfound.length > 0
-      ? `💡 Pista: ${unfound[Math.floor(Math.random() * unfound.length)].hint}`
-      : '🎉 ¡Increíble! ¡Los has encontrado todos!';
+    if (unfound.length === 0) {
+      albumHint.innerHTML = '';
+      const replayBtn = document.createElement('button');
+      replayBtn.className = 'text-verde-600 font-bold text-sm hover:underline cursor-pointer';
+      replayBtn.textContent = '✨ Ver la celebración otra vez ✨';
+      replayBtn.addEventListener('click', () => { closeAlbum(); setTimeout(showGrandFinale, 600); });
+      albumHint.appendChild(replayBtn);
+    } else {
+      albumHint.textContent = `💡 Pista: ${unfound[Math.floor(Math.random() * unfound.length)].hint}`;
+    }
   }
 
   function openAlbum() {
@@ -292,8 +401,12 @@ const cromosData = HARDCODED.map(h => {
 
     const cromo = CROMOS.find(c => c.id === id);
     if (cromo) {
-      showCelebration(cromo);
-      spawnParticles(cromo.color);
+      if (id === 'coleccion') {
+        showGrandFinale();
+      } else {
+        showCelebration(cromo);
+        spawnParticles(cromo.color);
+      }
     }
 
     if (found.size === 9 && !found.has('coleccion')) {
@@ -354,6 +467,190 @@ const cromosData = HARDCODED.map(h => {
       particles.appendChild(c);
       setTimeout(() => c.remove(), 5000);
     }
+  }
+
+  // ============================================================
+  //  GRAND FINALE — complete collection celebration
+  // ============================================================
+
+  function showGrandFinale() {
+    // Stars
+    finaleStars.innerHTML = '';
+    for (let i = 0; i < 200; i++) {
+      const s = document.createElement('div');
+      s.className = 'finale-star';
+      s.style.left = Math.random() * 100 + '%';
+      s.style.top = Math.random() * 100 + '%';
+      const sz = Math.random() > 0.92 ? 3 : Math.random() > 0.6 ? 2 : 1;
+      s.style.width = sz + 'px';
+      s.style.height = sz + 'px';
+      s.style.setProperty('--dur', (2 + Math.random() * 4) + 's');
+      s.style.setProperty('--del', (Math.random() * 4) + 's');
+      finaleStars.appendChild(s);
+    }
+
+    // Reset visual state
+    finaleQuestion.style.opacity = '0';
+    finaleAnswer.style.opacity = '0';
+    finaleAnswer.style.transform = 'scale(0.5)';
+    finaleSubtitle.style.opacity = '0';
+    finaleClose.style.opacity = '0';
+    finaleClose.style.pointerEvents = 'none';
+    finaleChars.innerHTML = '';
+    finaleConfetti.innerHTML = '';
+
+    // Show
+    grandFinale.style.opacity = '1';
+    grandFinale.style.pointerEvents = 'auto';
+
+    // Music
+    let customAudio: HTMLAudioElement | null = null;
+    let audioCtx: AudioContext | null = null;
+    customAudio = playFinaleMusic();
+    if (!customAudio) audioCtx = playMagicMelody();
+
+    // Choreography
+    setTimeout(() => { finaleQuestion.style.opacity = '1'; }, 1000);
+    setTimeout(() => { finaleQuestion.style.opacity = '0'; }, 4500);
+    setTimeout(() => {
+      finaleAnswer.style.opacity = '1';
+      finaleAnswer.style.transform = 'scale(1)';
+      spawnGoldenConfetti();
+    }, 5500);
+    setTimeout(() => { placeFinaleCharacters(); }, 6500);
+    setTimeout(() => { finaleSubtitle.style.opacity = '1'; }, 8000);
+    setTimeout(() => {
+      finaleClose.style.opacity = '1';
+      finaleClose.style.pointerEvents = 'auto';
+    }, 10000);
+
+    const close = () => {
+      grandFinale.style.opacity = '0';
+      grandFinale.style.pointerEvents = 'none';
+      if (customAudio) { customAudio.pause(); customAudio.currentTime = 0; }
+      if (audioCtx) { try { audioCtx.close(); } catch {} }
+      finaleClose.removeEventListener('click', close);
+    };
+    finaleClose.addEventListener('click', close);
+  }
+
+  function placeFinaleCharacters() {
+    finaleChars.innerHTML = '';
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const radius = Math.min(vw, vh) * 0.32;
+    const cx = vw / 2;
+    const cy = vh / 2;
+
+    CROMOS.forEach((cromo, i) => {
+      const angle = (Math.PI * 2 * i) / CROMOS.length - Math.PI / 2;
+      const x = cx + Math.cos(angle) * radius;
+      const y = cy + Math.sin(angle) * radius;
+
+      const el = document.createElement('div');
+      el.className = 'finale-char';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.setProperty('--dur', (3 + Math.random() * 2) + 's');
+      el.style.setProperty('--del', (i * 0.15) + 's');
+      el.style.opacity = '0';
+      el.style.transition = 'opacity 0.6s ease';
+
+      if (cromo.imageUrl) {
+        el.innerHTML = `<img src="${cromo.imageUrl}" alt="${cromo.name}"
+          class="w-10 h-10 md:w-14 md:h-14 object-contain" />`;
+      } else {
+        el.innerHTML = `<span class="text-2xl md:text-4xl">${cromo.emoji}</span>`;
+      }
+
+      finaleChars.appendChild(el);
+      setTimeout(() => { el.style.opacity = '1'; }, i * 180);
+    });
+  }
+
+  function spawnGoldenConfetti() {
+    const golds = ['#ffd700', '#ffaa00', '#ff8c00', '#fff4cc', '#ffe066', '#ffffff', '#fbbf24'];
+    for (let i = 0; i < 100; i++) {
+      const c = document.createElement('div');
+      c.className = 'finale-confetti';
+      c.style.left = Math.random() * 100 + '%';
+      c.style.width = (4 + Math.random() * 8) + 'px';
+      c.style.height = (4 + Math.random() * 8) + 'px';
+      c.style.background = golds[Math.floor(Math.random() * golds.length)];
+      c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      c.style.setProperty('--dur', (3 + Math.random() * 5) + 's');
+      c.style.setProperty('--del', (Math.random() * 4) + 's');
+      finaleConfetti.appendChild(c);
+      setTimeout(() => c.remove(), 12000);
+    }
+  }
+
+  function playFinaleMusic(): HTMLAudioElement | null {
+    if (!MUSIC_URL) return null;
+    try {
+      const a = new Audio(MUSIC_URL);
+      a.volume = 0.5;
+      a.play().catch(() => {});
+      return a;
+    } catch { return null; }
+  }
+
+  function playMagicMelody(): AudioContext | null {
+    try {
+      const ctx = new AudioContext();
+      const master = ctx.createGain();
+      master.gain.value = 0.1;
+      master.connect(ctx.destination);
+
+      const notes = [
+        { f: 523.25, t: 0 },     // C5
+        { f: 659.25, t: 0.28 },  // E5
+        { f: 783.99, t: 0.56 },  // G5
+        { f: 1046.50, t: 0.84 }, // C6
+        { f: 880.00, t: 1.4 },   // A5
+        { f: 1046.50, t: 1.6 },  // C6
+        { f: 1318.51, t: 1.8 },  // E6
+        { f: 1567.98, t: 2.1 },  // G6
+        // Chord
+        { f: 1046.50, t: 3.0 },  // C6
+        { f: 1318.51, t: 3.0 },  // E6
+        { f: 1567.98, t: 3.0 },  // G6
+        // Sparkle
+        { f: 2093.00, t: 3.8 },  // C7
+        { f: 1567.98, t: 4.3 },  // G6
+        { f: 2093.00, t: 4.8 },  // C7
+      ];
+
+      notes.forEach(({ f, t }) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = f;
+
+        const o2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        o2.type = 'sine';
+        o2.frequency.value = f * 2.005;
+
+        g.gain.setValueAtTime(0, ctx.currentTime + t);
+        g.gain.linearRampToValueAtTime(1, ctx.currentTime + t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 2.5);
+
+        g2.gain.setValueAtTime(0, ctx.currentTime + t);
+        g2.gain.linearRampToValueAtTime(0.25, ctx.currentTime + t + 0.015);
+        g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 1.8);
+
+        o.connect(g); g.connect(master);
+        o2.connect(g2); g2.connect(master);
+
+        o.start(ctx.currentTime + t);
+        o.stop(ctx.currentTime + t + 3);
+        o2.start(ctx.currentTime + t);
+        o2.stop(ctx.currentTime + t + 2.5);
+      });
+
+      return ctx;
+    } catch { return null; }
   }
 
   // === SECRET 1: Logo x7 ===
@@ -455,6 +752,7 @@ const cromosData = HARDCODED.map(h => {
   // === INIT ===
   function initEggs() {
     CROMOS = loadCromos();
+    MUSIC_URL = loadMusicUrl();
     found = getFound();
     updateAlbumBtn();
     initLogoSecret();
