@@ -9,12 +9,15 @@ const links = [
 ];
 ---
 
-<header class="bg-white shadow-sm sticky top-0 z-50">
+<header
+  id="site-header"
+  class="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-white/0"
+>
   <div class="max-w-6xl mx-auto px-4">
-    <div class="flex items-center justify-between h-16">
-      <a href="/" class="flex items-center gap-2 text-verde-600 font-bold text-xl">
-        <span>🌿</span>
-        <span>AMPA Los Lirios</span>
+    <div class="flex items-center justify-between h-16 md:h-20">
+      <a href="/" class="flex items-center gap-2.5 group" transition:name="logo">
+        <span class="text-2xl group-hover:scale-110 transition-transform duration-300">🌿</span>
+        <span class="font-extrabold text-lg md:text-xl text-verde-700 tracking-tight">AMPA Los Lirios</span>
       </a>
 
       <!-- Desktop nav -->
@@ -23,10 +26,10 @@ const links = [
           <a
             href={href}
             class:list={[
-              'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              'relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300',
               currentPath === href || (href !== '/' && currentPath.startsWith(href))
-                ? 'bg-verde-50 text-verde-700'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                ? 'bg-verde-500 text-white shadow-md shadow-verde-200'
+                : 'text-gray-600 hover:text-verde-700 hover:bg-verde-50',
             ]}
           >
             {label}
@@ -37,40 +40,97 @@ const links = [
       <!-- Mobile menu button -->
       <button
         id="menu-toggle"
-        class="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-verde-400"
+        class="md:hidden relative w-10 h-10 flex items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-verde-400 transition-colors"
         aria-label="Abrir menú"
         aria-expanded="false"
       >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <span id="hamburger" class="flex flex-col items-center justify-center gap-1.5 transition-all duration-300">
+          <span class="block w-5 h-0.5 bg-current transition-all duration-300 origin-center" id="bar1"></span>
+          <span class="block w-5 h-0.5 bg-current transition-all duration-300" id="bar2"></span>
+          <span class="block w-5 h-0.5 bg-current transition-all duration-300 origin-center" id="bar3"></span>
+        </span>
       </button>
     </div>
 
     <!-- Mobile nav -->
-    <nav id="mobile-menu" class="hidden md:hidden pb-4" aria-label="Navegación móvil">
-      {links.map(({ href, label }) => (
-        <a
-          href={href}
-          class:list={[
-            'block px-3 py-3 rounded-lg text-base font-medium transition-colors',
-            currentPath === href || (href !== '/' && currentPath.startsWith(href))
-              ? 'bg-verde-50 text-verde-700'
-              : 'text-gray-600 hover:bg-gray-50',
-          ]}
-        >
-          {label}
-        </a>
-      ))}
+    <nav
+      id="mobile-menu"
+      class="md:hidden overflow-hidden transition-all duration-500 ease-in-out"
+      style="max-height: 0; opacity: 0;"
+      aria-label="Navegación móvil"
+    >
+      <div class="pb-4 space-y-1">
+        {links.map(({ href, label }) => (
+          <a
+            href={href}
+            class:list={[
+              'block px-4 py-3 rounded-xl text-base font-medium transition-all duration-300',
+              currentPath === href || (href !== '/' && currentPath.startsWith(href))
+                ? 'bg-verde-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-verde-50 hover:text-verde-700',
+            ]}
+          >
+            {label}
+          </a>
+        ))}
+      </div>
     </nav>
   </div>
 </header>
 
+<!-- Spacer to offset fixed header -->
+<div class="h-16 md:h-20"></div>
+
 <script>
-  const toggle = document.getElementById('menu-toggle');
-  const menu = document.getElementById('mobile-menu');
-  toggle?.addEventListener('click', () => {
-    const open = menu?.classList.toggle('hidden') === false;
-    toggle.setAttribute('aria-expanded', String(open));
-  });
+  function initHeader() {
+    const header = document.getElementById('site-header');
+    const toggle = document.getElementById('menu-toggle');
+    const menu = document.getElementById('mobile-menu');
+    const bar1 = document.getElementById('bar1');
+    const bar2 = document.getElementById('bar2');
+    const bar3 = document.getElementById('bar3');
+    let menuOpen = false;
+
+    function updateHeader() {
+      if (!header) return;
+      if (window.scrollY > 20) {
+        header.classList.add('bg-white/95', 'backdrop-blur-lg', 'shadow-sm');
+        header.classList.remove('bg-white/0');
+      } else {
+        header.classList.remove('bg-white/95', 'backdrop-blur-lg', 'shadow-sm');
+        header.classList.add('bg-white/0');
+      }
+    }
+
+    window.addEventListener('scroll', updateHeader, { passive: true });
+    updateHeader();
+
+    toggle?.addEventListener('click', () => {
+      menuOpen = !menuOpen;
+      if (menu) {
+        if (menuOpen) {
+          menu.style.maxHeight = menu.scrollHeight + 'px';
+          menu.style.opacity = '1';
+        } else {
+          menu.style.maxHeight = '0';
+          menu.style.opacity = '0';
+        }
+      }
+      toggle.setAttribute('aria-expanded', String(menuOpen));
+      if (bar1 && bar2 && bar3) {
+        if (menuOpen) {
+          bar1.style.transform = 'translateY(4px) rotate(45deg)';
+          bar2.style.opacity = '0';
+          bar3.style.transform = 'translateY(-4px) rotate(-45deg)';
+        } else {
+          bar1.style.transform = '';
+          bar2.style.opacity = '1';
+          bar3.style.transform = '';
+        }
+      }
+    });
+  }
+
+  initHeader();
+  document.addEventListener('astro:after-swap', initHeader);
 </script>

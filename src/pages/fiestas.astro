@@ -22,30 +22,49 @@ const { data: pasados } = await supabase
 ---
 
 <Base title="Fiestas y eventos" description="Calendario de fiestas y eventos del AMPA Los Lirios.">
-  <section class="max-w-4xl mx-auto px-4 py-12">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">Fiestas y eventos</h1>
-    <p class="text-gray-500 mb-8">Todas las actividades organizadas por el AMPA</p>
+  <!-- Page header -->
+  <section class="bg-gradient-to-br from-verde-50 to-malva-50 py-12 md:py-16">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+      <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-3 reveal">
+        Fiestas y <span class="text-verde-600">eventos</span>
+      </h1>
+      <p class="text-gray-500 text-lg reveal" style="transition-delay: 100ms">
+        Todas las actividades organizadas por el AMPA
+      </p>
+    </div>
+  </section>
 
+  <section class="max-w-4xl mx-auto px-4 py-12">
     <!-- Próximos -->
-    <h2 class="text-xl font-bold text-verde-700 mb-4">Próximos eventos</h2>
-    {proximos && proximos.length > 0 ? (
-      <div class="space-y-4 mb-12">
-        {proximos.map((evento) => <EventCard {...evento} />)}
-      </div>
-    ) : (
-      <div class="bg-gray-50 rounded-xl p-8 text-center mb-12">
-        <p class="text-gray-500">No hay eventos próximos por ahora. ¡Vuelve pronto!</p>
-      </div>
-    )}
+    <div class="mb-12">
+      <h2 class="text-xl font-bold text-verde-700 mb-6 flex items-center gap-2 reveal">
+        <span class="w-8 h-8 bg-verde-100 rounded-lg flex items-center justify-center text-sm">📅</span>
+        Próximos eventos
+      </h2>
+      {proximos && proximos.length > 0 ? (
+        <div class="space-y-4 stagger-children">
+          {proximos.map((evento) => <EventCard {...evento} />)}
+        </div>
+      ) : (
+        <div class="bg-gray-50 rounded-2xl p-10 text-center reveal">
+          <div class="text-4xl mb-3">🌤️</div>
+          <p class="text-gray-500 font-medium">No hay eventos próximos por ahora.</p>
+          <p class="text-gray-400 text-sm mt-1">¡Vuelve pronto para ver las novedades!</p>
+        </div>
+      )}
+    </div>
 
     <!-- Pasados -->
     {pasados && pasados.length > 0 && (
-      <>
-        <h2 class="text-xl font-bold text-gray-500 mb-4">Eventos pasados</h2>
-        <div class="space-y-4 opacity-75">
+      <div>
+        <h2 class="text-xl font-bold text-gray-400 mb-6 flex items-center gap-2 reveal">
+          <span class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-sm">📋</span>
+          Eventos pasados
+        </h2>
+        <div class="space-y-3 stagger-children opacity-60">
           {pasados.map((evento) => <EventCard {...evento} />)}
         </div>
-      </>
+      </div>
     )}
   </section>
 </Base>

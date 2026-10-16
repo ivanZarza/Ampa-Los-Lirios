@@ -2,18 +2,45 @@
 const year = new Date().getFullYear();
 ---
 
-<footer class="bg-gray-800 text-gray-300 mt-auto">
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
-      <div class="flex items-center gap-2">
-        <span>🌿</span>
-        <span class="font-semibold text-white">AMPA Los Lirios</span>
+<footer class="bg-gray-900 text-gray-400 mt-auto relative overflow-hidden">
+  <!-- Decorative top wave -->
+  <div class="absolute top-0 left-0 right-0 -translate-y-[99%]">
+    <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full">
+      <path d="M0 60H1440V30C1440 30 1320 0 1080 10C840 20 720 50 480 40C240 30 120 0 0 10V60Z" fill="#111827"/>
+    </svg>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 py-12">
+    <div class="grid md:grid-cols-3 gap-8 mb-8">
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-2xl">🌿</span>
+          <span class="font-bold text-white text-lg">AMPA Los Lirios</span>
+        </div>
+        <p class="text-sm leading-relaxed">
+          Asociación de Madres y Padres de Alumnos. Trabajamos juntos por una comunidad educativa mejor.
+        </p>
       </div>
-      <div class="flex flex-wrap justify-center gap-4">
-        <a href="/contacto" class="hover:text-white transition-colors">Contacto</a>
-        <a href="/privacidad" class="hover:text-white transition-colors">Privacidad y aviso legal</a>
+      <div>
+        <h3 class="font-semibold text-white mb-3 text-sm uppercase tracking-wider">Enlaces</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a href="/fiestas" class="hover:text-white transition-colors duration-300">Fiestas y eventos</a></li>
+          <li><a href="/galeria" class="hover:text-white transition-colors duration-300">Galería de fotos</a></li>
+          <li><a href="/colaboradores" class="hover:text-white transition-colors duration-300">Colaboradores</a></li>
+          <li><a href="/contacto" class="hover:text-white transition-colors duration-300">Contacto</a></li>
+        </ul>
       </div>
-      <p>&copy; {year} AMPA Los Lirios</p>
+      <div>
+        <h3 class="font-semibold text-white mb-3 text-sm uppercase tracking-wider">Contacto</h3>
+        <a href="mailto:ampaloslirios@gmail.com" class="text-sm hover:text-white transition-colors duration-300 break-all">
+          ampaloslirios@gmail.com
+        </a>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <p>&copy; {year} AMPA Los Lirios. Todos los derechos reservados.</p>
+      <a href="/privacidad" class="hover:text-white transition-colors duration-300">Privacidad y aviso legal</a>
     </div>
   </div>
 </footer>

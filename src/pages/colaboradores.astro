@@ -13,14 +13,21 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
 ---
 
 <Base title="Colaboradores" description="Comercios y empresas que colaboran con el AMPA Los Lirios y ofrecen ventajas a las familias socias.">
-  <section class="max-w-5xl mx-auto px-4 py-12">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">Nuestros colaboradores</h1>
-    <p class="text-gray-500 mb-8">
-      Comercios y empresas que apoyan al AMPA y ofrecen ventajas especiales a las familias socias.
-    </p>
+  <!-- Page header -->
+  <section class="bg-gradient-to-br from-verde-50 to-malva-50 py-12 md:py-16">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+      <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-3 reveal">
+        Nuestros <span class="text-verde-600">colaboradores</span>
+      </h1>
+      <p class="text-gray-500 text-lg max-w-2xl mx-auto reveal" style="transition-delay: 100ms">
+        Comercios y empresas que apoyan al AMPA y ofrecen ventajas especiales a las familias socias.
+      </p>
+    </div>
+  </section>
 
+  <section class="max-w-5xl mx-auto px-4 py-12">
     {colaboradores && colaboradores.length > 0 ? (
-      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
         {colaboradores.map((c) => (
           <PartnerCard
             nombre={c.nombre}
@@ -32,10 +39,29 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
         ))}
       </div>
     ) : (
-      <div class="bg-gray-50 rounded-xl p-12 text-center">
-        <div class="text-4xl mb-3">🏪</div>
-        <p class="text-gray-500">Próximamente publicaremos la lista de colaboradores.</p>
+      <div class="bg-gray-50 rounded-2xl p-16 text-center reveal">
+        <div class="text-5xl mb-4">🏪</div>
+        <p class="text-gray-500 font-medium text-lg">Próximamente publicaremos la lista de colaboradores.</p>
       </div>
     )}
+  </section>
+
+  <!-- CTA -->
+  <section class="pb-16 reveal">
+    <div class="max-w-3xl mx-auto px-4">
+      <div class="bg-gradient-to-br from-malva-500 to-malva-600 rounded-3xl p-8 md:p-10 text-center text-white relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+        <div class="relative">
+          <h2 class="text-2xl md:text-3xl font-extrabold mb-3">¿Tienes un comercio?</h2>
+          <p class="text-malva-100 mb-6">
+            Colabora con el AMPA y llega a las familias del colegio. Escríbenos para conocer las condiciones.
+          </p>
+          <a href="/contacto" class="inline-flex items-center justify-center px-6 py-3 bg-white text-malva-700 font-bold rounded-xl
+                                     hover:bg-malva-50 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
+            Contactar
+          </a>
+        </div>
+      </div>
+    </div>
   </section>
 </Base>

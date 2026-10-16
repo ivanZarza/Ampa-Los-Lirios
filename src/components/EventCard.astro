@@ -10,45 +10,40 @@ interface Props {
 
 const { titulo, descripcion, fecha_inicio, fecha_fin, lugar, destacado } = Astro.props;
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+const fecha = new Date(fecha_inicio);
+const dia = fecha.getDate();
+const mes = fecha.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+const fechaLarga = fecha.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const hora = fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 ---
 
-<article class:list={['card p-5', destacado && 'ring-2 ring-verde-400']}>
+<article class:list={[
+  'card card-hover p-5 group',
+  destacado && 'ring-2 ring-verde-400 shadow-lg shadow-verde-100',
+]}>
   <div class="flex items-start gap-4">
-    <div class="flex-shrink-0 bg-verde-50 text-verde-700 rounded-lg p-3 text-center min-w-[60px]">
-      <div class="text-2xl font-bold leading-none">
-        {new Date(fecha_inicio).getDate()}
-      </div>
-      <div class="text-xs uppercase mt-1">
-        {new Date(fecha_inicio).toLocaleDateString('es-ES', { month: 'short' })}
-      </div>
+    <div class:list={[
+      'flex-shrink-0 rounded-2xl p-3 text-center min-w-[64px] transition-all duration-300 group-hover:scale-105',
+      destacado ? 'bg-verde-500 text-white shadow-lg shadow-verde-200' : 'bg-verde-50 text-verde-700',
+    ]}>
+      <div class="text-2xl font-extrabold leading-none">{dia}</div>
+      <div class="text-xs uppercase mt-1 font-semibold tracking-wider">{mes}</div>
     </div>
     <div class="flex-1 min-w-0">
-      <h3 class="text-lg font-bold text-gray-900">{titulo}</h3>
+      <h3 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors duration-300">{titulo}</h3>
       <p class="text-sm text-gray-500 mt-1">
-        {formatDate(fecha_inicio)}
-        {fecha_fin && ` — ${formatDate(fecha_fin)}`}
-        {' · '}{formatTime(fecha_inicio)}
+        {fechaLarga} · {hora}
       </p>
       {lugar && (
-        <p class="text-sm text-malva-600 mt-1">📍 {lugar}</p>
+        <p class="text-sm text-malva-600 mt-1.5 flex items-center gap-1">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+          </svg>
+          {lugar}
+        </p>
       )}
       {descripcion && (
-        <p class="text-gray-600 mt-2 text-sm leading-relaxed">{descripcion}</p>
+        <p class="text-gray-600 mt-2.5 text-sm leading-relaxed line-clamp-3">{descripcion}</p>
       )}
     </div>
   </div>
