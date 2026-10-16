@@ -2,6 +2,7 @@
 import { ViewTransitions } from 'astro:transitions';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import EasterEggs from '../components/EasterEggs.astro';
 import '../styles/global.css';
 
 interface Props {
@@ -33,6 +34,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <slot />
     </main>
     <Footer />
+    <EasterEggs />
 
     <!-- Scroll Reveal Observer -->
     <script>

@@ -1,0 +1,468 @@
+---
+import { supabase } from '../lib/supabase';
+
+let dbCromos: any[] = [];
+try {
+  const { data } = await supabase.from('cromos').select('*');
+  dbCromos = data || [];
+} catch {}
+
+const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/cromos`;
+
+const HARDCODED = [
+  { slug: 'logo7',      emoji: '🐱', rarity: 'comun',      hint: 'Prueba a tocar el logo varias veces…' },
+  { slug: 'ladybug',    emoji: '🐞', rarity: 'comun',      hint: 'Mira bien las esquinas de la pantalla…' },
+  { slug: 'lirios',     emoji: '🌸', rarity: 'raro',       hint: 'Escribe el nombre de nuestras flores…' },
+  { slug: 'konami',     emoji: '🐲', rarity: 'legendario', hint: '↑↑↓↓←→←→BA… ¿te suena?' },
+  { slug: 'comunidad',  emoji: '🦊', rarity: 'raro',       hint: 'Busca la palabra "comunidad" en la portada…' },
+  { slug: 'nocturno',   emoji: '🦉', rarity: 'epico',      hint: 'Algunos secretos solo se ven de noche…' },
+  { slug: 'privacidad', emoji: '🐢', rarity: 'raro',       hint: 'Alguien que lee la letra pequeña merece un premio…' },
+  { slug: 'estrella',   emoji: '⭐', rarity: 'epico',      hint: 'Hay una estrella muy pequeña en la página de fiestas…' },
+  { slug: 'camara',     emoji: '🦋', rarity: 'raro',       hint: 'Toca el icono de la cámara en la galería…' },
+  { slug: 'coleccion',  emoji: '🦄', rarity: 'legendario', hint: 'Encuentra los 9 cromos anteriores…' },
+];
+
+const cromosData = HARDCODED.map(h => {
+  const db = dbCromos.find(c => c.slug === h.slug);
+  return {
+    id: h.slug,
+    emoji: h.emoji,
+    name: db?.nombre || h.slug,
+    desc: db?.descripcion || '',
+    rarity: h.rarity,
+    hint: h.hint,
+    color: db?.color || '#4a8f4a',
+    imageUrl: db?.imagen_ruta ? `${bucketUrl}/${db.imagen_ruta}` : null,
+  };
+});
+---
+
+<!-- Cromo data for client -->
+<div id="cromos-config" data-cromos={JSON.stringify(cromosData)} style="display:none"></div>
+
+<!-- Hidden ladybug (secret 2) -->
+<div
+  id="secret-ladybug"
+  class="fixed bottom-3 left-3 w-4 h-4 cursor-pointer z-40 opacity-[0.08] hover:opacity-30
+         transition-opacity duration-[2000ms] text-[10px] leading-none select-none"
+  aria-hidden="true"
+>🐞</div>
+
+<!-- Hidden star on /fiestas (secret 8) -->
+<div
+  id="secret-star"
+  class="hidden fixed top-[40%] right-3 w-3 h-3 cursor-pointer z-40 opacity-[0.06] hover:opacity-25
+         transition-opacity duration-[2000ms] text-[8px] leading-none select-none"
+  aria-hidden="true"
+>⭐</div>
+
+<!-- Album button -->
+<button
+  id="album-btn"
+  class="fixed bottom-4 right-4 w-12 h-12 rounded-full bg-white shadow-lg border-2 border-verde-200
+         z-50 flex items-center justify-center text-xl hover:scale-110 hover:shadow-xl
+         transition-all duration-300 cursor-pointer opacity-0 pointer-events-none"
+  aria-label="Álbum de cromos"
+>
+  <span>🏆</span>
+  <span id="album-badge"
+    class="absolute -top-1 -right-1 w-5 h-5 bg-verde-500 text-white text-[10px] font-bold
+           rounded-full flex items-center justify-center">0</span>
+</button>
+
+<!-- Album overlay -->
+<div id="album-overlay" class="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm
+     flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-500">
+  <div id="album-card" class="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[85vh] overflow-y-auto
+       transform scale-95 transition-transform duration-500 relative">
+    <div class="sticky top-0 bg-white rounded-t-3xl border-b border-gray-100 p-5 flex items-center justify-between z-10">
+      <div>
+        <h2 class="text-lg font-extrabold text-gray-900">Álbum de cromos</h2>
+        <p id="album-count" class="text-xs text-gray-400 mt-0.5">0 de 10 encontrados</p>
+      </div>
+      <button id="album-close" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center
+              text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="album-grid" class="p-5 grid grid-cols-2 gap-3"></div>
+    <div class="p-5 pt-0">
+      <p id="album-hint" class="text-xs text-gray-400 text-center italic"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Celebration overlay -->
+<div id="celebration" class="fixed inset-0 z-[300] flex items-center justify-center p-4
+     opacity-0 pointer-events-none transition-opacity duration-300">
+  <div id="celeb-card" class="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-xs w-full
+       transform scale-75 transition-transform duration-500">
+    <div id="celeb-visual" class="mb-3 flex items-center justify-center"></div>
+    <div class="text-xs font-bold text-verde-500 uppercase tracking-widest mb-1">¡Nuevo cromo!</div>
+    <h3 id="celeb-name" class="text-xl font-extrabold text-gray-900 mb-1"></h3>
+    <p id="celeb-desc" class="text-sm text-gray-500"></p>
+    <div id="celeb-rarity" class="mt-3 text-xs font-bold px-3 py-1 rounded-full inline-block"></div>
+  </div>
+</div>
+
+<!-- Particle container -->
+<div id="particles" class="fixed inset-0 pointer-events-none z-[299] overflow-hidden" aria-hidden="true"></div>
+
+<style>
+  @keyframes particle-burst {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
+  }
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    animation: particle-burst 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes confetti {
+    0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  .confetti {
+    position: fixed;
+    top: -10px;
+    pointer-events: none;
+    z-index: 298;
+  }
+  .cromo {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .cromo:hover {
+    transform: scale(1.05);
+  }
+  .cromo.found {
+    animation: cromo-shine 2s ease-in-out;
+  }
+  @keyframes cromo-shine {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 20px 4px rgba(74, 143, 74, 0.3); }
+  }
+  @keyframes hint-pulse {
+    0%, 100% { opacity: 0.05; }
+    50% { opacity: 0.15; }
+  }
+  .hint-pulse {
+    animation: hint-pulse 3s ease-in-out infinite;
+  }
+  .celeb-bounce {
+    animation: celeb-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes celeb-bounce {
+    0% { transform: scale(0.3); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+</style>
+
+<script>
+  interface Cromo {
+    id: string;
+    emoji: string;
+    name: string;
+    desc: string;
+    rarity: 'comun' | 'raro' | 'epico' | 'legendario';
+    hint: string;
+    color: string;
+    imageUrl: string | null;
+  }
+
+  const RARITY_LABELS: Record<string, { label: string; bg: string; text: string }> = {
+    comun:      { label: 'Común',      bg: 'bg-gray-100',   text: 'text-gray-600' },
+    raro:       { label: 'Raro',       bg: 'bg-blue-100',   text: 'text-blue-700' },
+    epico:      { label: 'Épico',      bg: 'bg-purple-100', text: 'text-purple-700' },
+    legendario: { label: 'Legendario', bg: 'bg-amber-100',  text: 'text-amber-700' },
+  };
+
+  function loadCromos(): Cromo[] {
+    const el = document.getElementById('cromos-config');
+    if (!el) return [];
+    try { return JSON.parse(el.dataset.cromos || '[]'); } catch { return []; }
+  }
+
+  let CROMOS = loadCromos();
+
+  function getFound(): Set<string> {
+    try {
+      const raw = localStorage.getItem('ampa-cromos');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  }
+
+  function saveFound(found: Set<string>) {
+    try { localStorage.setItem('ampa-cromos', JSON.stringify([...found])); } catch {}
+  }
+
+  let found = getFound();
+
+  const albumBtn     = document.getElementById('album-btn')!;
+  const albumBadge   = document.getElementById('album-badge')!;
+  const albumOverlay = document.getElementById('album-overlay')!;
+  const albumCard    = document.getElementById('album-card')!;
+  const albumGrid    = document.getElementById('album-grid')!;
+  const albumCount   = document.getElementById('album-count')!;
+  const albumHint    = document.getElementById('album-hint')!;
+  const albumClose   = document.getElementById('album-close')!;
+  const celebration  = document.getElementById('celebration')!;
+  const celebCard    = document.getElementById('celeb-card')!;
+  const celebVisual  = document.getElementById('celeb-visual')!;
+  const celebName    = document.getElementById('celeb-name')!;
+  const celebDesc    = document.getElementById('celeb-desc')!;
+  const celebRarity  = document.getElementById('celeb-rarity')!;
+  const particles    = document.getElementById('particles')!;
+
+  function cromoVisualHTML(cromo: Cromo, sizeClass: string, imgClass: string): string {
+    if (cromo.imageUrl) {
+      return `<img src="${cromo.imageUrl}" alt="${cromo.name}" class="${imgClass}" />`;
+    }
+    return `<span class="${sizeClass}">${cromo.emoji}</span>`;
+  }
+
+  function updateAlbumBtn() {
+    if (found.size > 0) {
+      albumBtn.style.opacity = '1';
+      albumBtn.style.pointerEvents = 'auto';
+    }
+    albumBadge.textContent = String(found.size);
+  }
+
+  function renderAlbum() {
+    albumGrid.innerHTML = '';
+    albumCount.textContent = `${found.size} de ${CROMOS.length} encontrados`;
+
+    CROMOS.forEach((c) => {
+      const isFound = found.has(c.id);
+      const div = document.createElement('div');
+      div.className = `cromo rounded-2xl p-4 text-center border-2 ${
+        isFound
+          ? 'bg-white border-gray-200 shadow-md found'
+          : 'bg-gray-50 border-dashed border-gray-200'
+      }`;
+
+      if (isFound) {
+        const visual = cromoVisualHTML(c, 'text-4xl', 'w-16 h-16 object-contain mx-auto');
+        const r = RARITY_LABELS[c.rarity];
+        div.innerHTML = `
+          <div class="mb-2 flex items-center justify-center h-16">${visual}</div>
+          <div class="font-bold text-sm text-gray-900">${c.name}</div>
+          <div class="text-xs text-gray-400 mt-1">${c.desc}</div>
+          <div class="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${r.bg} ${r.text}">
+            ${r.label}
+          </div>`;
+      } else {
+        div.innerHTML = `
+          <div class="mb-2 flex items-center justify-center h-16">
+            <span class="text-4xl opacity-20">❓</span>
+          </div>
+          <div class="font-bold text-sm text-gray-300">???</div>
+          <div class="text-[11px] text-gray-400 mt-2 italic">${c.hint}</div>`;
+      }
+      albumGrid.appendChild(div);
+    });
+
+    const unfound = CROMOS.filter(c => !found.has(c.id));
+    albumHint.textContent = unfound.length > 0
+      ? `💡 Pista: ${unfound[Math.floor(Math.random() * unfound.length)].hint}`
+      : '🎉 ¡Increíble! ¡Los has encontrado todos!';
+  }
+
+  function openAlbum() {
+    renderAlbum();
+    albumOverlay.style.opacity = '1';
+    albumOverlay.style.pointerEvents = 'auto';
+    albumCard.style.transform = 'scale(1)';
+  }
+
+  function closeAlbum() {
+    albumOverlay.style.opacity = '0';
+    albumOverlay.style.pointerEvents = 'none';
+    albumCard.style.transform = 'scale(0.95)';
+  }
+
+  albumBtn.addEventListener('click', openAlbum);
+  albumClose.addEventListener('click', closeAlbum);
+  albumOverlay.addEventListener('click', (e) => { if (e.target === albumOverlay) closeAlbum(); });
+
+  function unlock(id: string) {
+    if (found.has(id)) return;
+    found.add(id);
+    saveFound(found);
+    updateAlbumBtn();
+
+    const cromo = CROMOS.find(c => c.id === id);
+    if (cromo) {
+      showCelebration(cromo);
+      spawnParticles(cromo.color);
+    }
+
+    if (found.size === 9 && !found.has('coleccion')) {
+      setTimeout(() => unlock('coleccion'), 3000);
+    }
+  }
+
+  function showCelebration(cromo: Cromo) {
+    const visual = cromoVisualHTML(cromo, 'text-6xl', 'w-24 h-24 object-contain');
+    celebVisual.innerHTML = `<div class="celeb-bounce">${visual}</div>`;
+    celebName.textContent = cromo.name;
+    celebDesc.textContent = cromo.desc;
+    const r = RARITY_LABELS[cromo.rarity];
+    celebRarity.textContent = r.label;
+    celebRarity.className = `mt-3 text-xs font-bold px-3 py-1 rounded-full inline-block ${r.bg} ${r.text}`;
+
+    celebration.style.opacity = '1';
+    celebration.style.pointerEvents = 'auto';
+    celebCard.style.transform = 'scale(1)';
+
+    setTimeout(() => {
+      celebration.style.opacity = '0';
+      celebration.style.pointerEvents = 'none';
+      celebCard.style.transform = 'scale(0.75)';
+    }, 3500);
+  }
+
+  function spawnParticles(color: string) {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const emojis = ['✨', '⭐', '🌟', '💫', '🎉', '🎊'];
+
+    for (let i = 0; i < 24; i++) {
+      const el = document.createElement('div');
+      el.className = 'particle';
+      el.textContent = emojis[i % emojis.length];
+      el.style.left = cx + 'px';
+      el.style.top = cy + 'px';
+      el.style.fontSize = (1 + Math.random()) + 'rem';
+      const angle = (Math.PI * 2 * i) / 24;
+      const dist = 80 + Math.random() * 200;
+      el.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+      el.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+      el.style.animationDelay = (Math.random() * 0.3) + 's';
+      particles.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    }
+
+    for (let i = 0; i < 40; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.width = (6 + Math.random() * 6) + 'px';
+      c.style.height = (6 + Math.random() * 6) + 'px';
+      c.style.background = [color, '#4a8f4a', '#9b72b0', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 5)];
+      c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      c.style.animation = `confetti ${2 + Math.random() * 2}s linear ${Math.random() * 1}s forwards`;
+      particles.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }
+  }
+
+  // === SECRET 1: Logo x7 ===
+  let logoTaps = 0;
+  let logoTimer: ReturnType<typeof setTimeout>;
+  function initLogoSecret() {
+    document.querySelectorAll('a[href="/"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        logoTaps++;
+        clearTimeout(logoTimer);
+        logoTimer = setTimeout(() => { logoTaps = 0; }, 2500);
+        if (logoTaps >= 7) {
+          e.preventDefault();
+          logoTaps = 0;
+          unlock('logo7');
+        }
+      });
+    });
+  }
+
+  // === SECRET 2: Ladybug ===
+  const ladybug = document.getElementById('secret-ladybug');
+  let ladybugClicks = 0;
+  ladybug?.addEventListener('click', () => {
+    ladybugClicks++;
+    if (ladybugClicks >= 3) { ladybugClicks = 0; unlock('ladybug'); }
+  });
+
+  // === SECRET 3: Type "lirios" ===
+  let typedBuf = '';
+  document.addEventListener('keypress', (e) => {
+    typedBuf += e.key.toLowerCase();
+    if (typedBuf.length > 30) typedBuf = typedBuf.slice(-30);
+    if (typedBuf.includes('lirios')) { typedBuf = ''; unlock('lirios'); }
+  });
+
+  // === SECRET 4: Konami Code ===
+  const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+  let konamiPos = 0;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === KONAMI[konamiPos]) {
+      konamiPos++;
+      if (konamiPos === KONAMI.length) { konamiPos = 0; unlock('konami'); }
+    } else {
+      konamiPos = e.key === KONAMI[0] ? 1 : 0;
+    }
+  });
+
+  // === SECRET 5: Double-click "comunidad" ===
+  document.addEventListener('dblclick', () => {
+    const sel = window.getSelection()?.toString().trim().toLowerCase();
+    if (sel === 'comunidad') unlock('comunidad');
+  });
+
+  // === SECRET 6: Night visit ===
+  const hour = new Date().getHours();
+  if (hour >= 22 || hour < 6) unlock('nocturno');
+
+  // === SECRET 7: Scroll bottom /privacidad ===
+  function initPrivacidadSecret() {
+    if (!window.location.pathname.startsWith('/privacidad')) return;
+    const handler = () => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50) {
+        unlock('privacidad');
+        window.removeEventListener('scroll', handler);
+      }
+    };
+    window.addEventListener('scroll', handler, { passive: true });
+  }
+
+  // === SECRET 8: Hidden star /fiestas ===
+  function initFiestasSecret() {
+    const star = document.getElementById('secret-star');
+    if (!star) return;
+    if (window.location.pathname.startsWith('/fiestas')) {
+      star.classList.remove('hidden');
+      star.classList.add('hint-pulse');
+      star.addEventListener('click', () => { unlock('estrella'); star.classList.add('hidden'); });
+    }
+  }
+
+  // === SECRET 9: Tap 📸 on /galeria 3x ===
+  let cameraClicks = 0;
+  let cameraTimer: ReturnType<typeof setTimeout>;
+  function initGaleriaSecret() {
+    if (!window.location.pathname.startsWith('/galeria')) return;
+    document.querySelectorAll('*').forEach(el => {
+      if (el.textContent?.trim() === '📸' && el.children.length === 0) {
+        el.addEventListener('click', () => {
+          cameraClicks++;
+          clearTimeout(cameraTimer);
+          cameraTimer = setTimeout(() => { cameraClicks = 0; }, 2000);
+          if (cameraClicks >= 3) { cameraClicks = 0; unlock('camara'); }
+        });
+      }
+    });
+  }
+
+  // === INIT ===
+  function initEggs() {
+    CROMOS = loadCromos();
+    found = getFound();
+    updateAlbumBtn();
+    initLogoSecret();
+    initPrivacidadSecret();
+    initFiestasSecret();
+    initGaleriaSecret();
+  }
+
+  initEggs();
+  document.addEventListener('astro:after-swap', initEggs);
+</script>
