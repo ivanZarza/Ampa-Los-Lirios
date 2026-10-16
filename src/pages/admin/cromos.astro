@@ -97,6 +97,7 @@ if (Astro.request.method === 'POST') {
 
       if (!error) {
         const payload: Record<string, any> = {
+          tematica: form.get('tematica')?.toString() || '',
           nombre: form.get('nombre')?.toString() || '',
           descripcion: form.get('descripcion')?.toString() || '',
           color: form.get('color')?.toString() || '#4a8f4a',
@@ -143,6 +144,13 @@ const editCromo = editSlug ? cromosMap.get(editSlug) : null;
       <form method="POST" enctype="multipart/form-data" class="space-y-4">
         <input type="hidden" name="slug" value={editSlug} />
         <input type="hidden" name="imagen_ruta_actual" value={editCromo.imagen_ruta || ''} />
+
+        <div>
+          <label for="tematica" class="label-field">Temática / Valor</label>
+          <input type="text" id="tematica" name="tematica" class="input-field"
+                 value={editCromo.tematica} placeholder="Ej: La Amistad, El Respeto, La Colaboración..." />
+          <p class="text-xs text-gray-400 mt-1">El valor que representa este cromo. Se muestra como título en el álbum.</p>
+        </div>
 
         <div>
           <label for="nombre" class="label-field">Nombre del personaje *</label>
@@ -218,6 +226,9 @@ const editCromo = editSlug ? cromosMap.get(editSlug) : null;
                   info.rarity === 'Legendario' && 'bg-amber-100 text-amber-700',
                 ]}>{info.rarity}</span>
               </div>
+              {cromo?.tematica && (
+                <p class="text-[10px] font-bold text-verde-600 uppercase tracking-wide">{cromo.tematica}</p>
+              )}
               <h3 class="font-bold text-gray-900 text-sm">{cromo?.nombre || '???'}</h3>
               <p class="text-xs text-gray-400 mt-0.5 truncate">{info.trigger}</p>
               {!hasImage && (

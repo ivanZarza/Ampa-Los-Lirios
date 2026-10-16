@@ -25,7 +25,8 @@ Guia para poner la web en produccion con Cloudflare Pages y Supabase.
 1. Ve a **SQL Editor** en el panel de Supabase.
 2. Pega el contenido de `supabase/migrations/001_initial_schema.sql` y ejecuta.
 3. Pega el contenido de `supabase/migrations/002_cromos.sql` y ejecuta.
-4. Anade el primer administrador:
+4. Pega el contenido de `supabase/migrations/003_cromos_tematica.sql` y ejecuta.
+5. Anade el primer administrador:
    ```sql
    INSERT INTO public.admins (email) VALUES ('tu@correo.com');
    ```
