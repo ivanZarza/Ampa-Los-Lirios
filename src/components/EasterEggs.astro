@@ -106,11 +106,11 @@ try {
   <div id="celeb-card" class="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-xs w-full
        transform scale-75 transition-transform duration-500">
     <div id="celeb-visual" class="mb-3 flex items-center justify-center"></div>
-    <div class="text-xs font-bold text-verde-500 uppercase tracking-widest mb-1">¡Nuevo cromo!</div>
+    <div id="celeb-label" class="text-xs font-bold text-verde-500 uppercase tracking-widest mb-1">¡Nuevo cromo!</div>
     <h3 id="celeb-name" class="text-xl font-extrabold text-gray-900 mb-1"></h3>
     <p id="celeb-desc" class="text-sm text-gray-500"></p>
     <div id="celeb-rarity" class="mt-3 text-xs font-bold px-3 py-1 rounded-full inline-block"></div>
-    <p class="text-[11px] text-gray-400 mt-4 opacity-60">Toca en cualquier sitio para cerrar</p>
+    <p id="celeb-hint" class="text-[11px] text-gray-400 mt-4 opacity-60">Toca en cualquier sitio para cerrar</p>
   </div>
 </div>
 
@@ -323,6 +323,103 @@ try {
 
   let celebAnimInterval: ReturnType<typeof setInterval> | null = null;
 
+  const CARD_THEMES: Record<string, {
+    font: string; labelText: string; labelColor: string;
+    titleColor: string; descColor: string; hintColor: string;
+    cardBg: string; cardBorder: string;
+  }> = {
+    logo7: {
+      font: "'Fredoka', sans-serif",
+      labelText: '¡Miau!',
+      labelColor: '#ea580c',
+      titleColor: '#9a3412',
+      descColor: '#c2410c',
+      hintColor: '#d4a373',
+      cardBg: 'linear-gradient(135deg, #fff7ed, #ffedd5)',
+      cardBorder: '2px solid #fdba74',
+    },
+    ladybug: {
+      font: "'Fredoka', sans-serif",
+      labelText: '¡Qué suerte!',
+      labelColor: '#dc2626',
+      titleColor: '#991b1b',
+      descColor: '#b91c1c',
+      hintColor: '#fca5a5',
+      cardBg: 'linear-gradient(135deg, #fef2f2, #fee2e2)',
+      cardBorder: '2px solid #fca5a5',
+    },
+    lirios: {
+      font: "'Pacifico', cursive",
+      labelText: '¡Floreciendo!',
+      labelColor: '#c026d3',
+      titleColor: '#86198f',
+      descColor: '#a21caf',
+      hintColor: '#d8b4fe',
+      cardBg: 'linear-gradient(135deg, #fdf4ff, #f5d0fe)',
+      cardBorder: '2px solid #e879f9',
+    },
+    konami: {
+      font: "'Bangers', cursive",
+      labelText: '¡POWER UP!',
+      labelColor: '#a78bfa',
+      titleColor: '#e0e7ff',
+      descColor: '#c4b5fd',
+      hintColor: '#6366f1',
+      cardBg: 'linear-gradient(135deg, #0f0f23, #1a1a3e)',
+      cardBorder: '2px solid #8b5cf6',
+    },
+    comunidad: {
+      font: "'Fredoka', sans-serif",
+      labelText: '¡Juntos!',
+      labelColor: '#ea580c',
+      titleColor: '#78350f',
+      descColor: '#92400e',
+      hintColor: '#d4a373',
+      cardBg: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+      cardBorder: '2px solid #fbbf24',
+    },
+    nocturno: {
+      font: "'Creepster', cursive",
+      labelText: '¡Búho nocturno!',
+      labelColor: '#818cf8',
+      titleColor: '#e0e7ff',
+      descColor: '#c7d2fe',
+      hintColor: '#6366f1',
+      cardBg: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+      cardBorder: '2px solid #6366f1',
+    },
+    privacidad: {
+      font: "'Caveat', cursive",
+      labelText: '¡Bien leído!',
+      labelColor: '#059669',
+      titleColor: '#064e3b',
+      descColor: '#047857',
+      hintColor: '#6ee7b7',
+      cardBg: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
+      cardBorder: '2px solid #6ee7b7',
+    },
+    estrella: {
+      font: "'Orbitron', sans-serif",
+      labelText: '¡ESTELAR!',
+      labelColor: '#d97706',
+      titleColor: '#78350f',
+      descColor: '#92400e',
+      hintColor: '#fbbf24',
+      cardBg: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+      cardBorder: '2px solid #f59e0b',
+    },
+    camara: {
+      font: "'Pacifico', cursive",
+      labelText: '¡Flash!',
+      labelColor: '#0891b2',
+      titleColor: '#164e63',
+      descColor: '#0e7490',
+      hintColor: '#67e8f9',
+      cardBg: 'linear-gradient(135deg, #ecfeff, #cffafe)',
+      cardBorder: '2px solid #67e8f9',
+    },
+  };
+
   function loadCromos(): Cromo[] {
     const el = document.getElementById('cromos-config');
     if (!el) return [];
@@ -374,6 +471,16 @@ try {
   const finaleClose     = document.getElementById('finale-close')!;
   const finaleChars     = document.getElementById('finale-characters')!;
   const finaleConfetti  = document.getElementById('finale-confetti-box')!;
+  const celebLabel      = document.getElementById('celeb-label')!;
+  const celebHint       = document.getElementById('celeb-hint')!;
+
+  if (!document.querySelector('link[data-easter-fonts]')) {
+    const fl = document.createElement('link');
+    fl.rel = 'stylesheet';
+    fl.dataset.easterFonts = '';
+    fl.href = 'https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@700&family=Creepster&family=Fredoka:wght@600&family=Orbitron:wght@700&family=Pacifico&display=swap';
+    document.head.appendChild(fl);
+  }
 
   function cromoVisualHTML(cromo: Cromo, sizeClass: string, imgClass: string): string {
     if (cromo.imageUrl) {
@@ -483,6 +590,15 @@ try {
     celebration.style.opacity = '0';
     celebration.style.pointerEvents = 'none';
     celebCard.style.transform = 'scale(0.75)';
+    celebCard.style.background = '';
+    celebCard.style.border = '';
+    celebLabel.textContent = '¡Nuevo cromo!';
+    celebLabel.style.color = '';
+    celebName.style.fontFamily = '';
+    celebName.style.color = '';
+    celebName.style.fontSize = '';
+    celebDesc.style.color = '';
+    celebHint.style.color = '';
     particles.innerHTML = '';
     if (celebAnimInterval) {
       clearInterval(celebAnimInterval);
@@ -498,6 +614,29 @@ try {
     const r = RARITY_LABELS[cromo.rarity];
     celebRarity.textContent = r.label;
     celebRarity.className = `mt-3 text-xs font-bold px-3 py-1 rounded-full inline-block ${r.bg} ${r.text}`;
+
+    const t = CARD_THEMES[cromo.id];
+    if (t) {
+      celebCard.style.background = t.cardBg;
+      celebCard.style.border = t.cardBorder;
+      celebLabel.textContent = t.labelText;
+      celebLabel.style.color = t.labelColor;
+      celebName.style.fontFamily = t.font;
+      celebName.style.color = t.titleColor;
+      celebName.style.fontSize = '1.5rem';
+      celebDesc.style.color = t.descColor;
+      celebHint.style.color = t.hintColor;
+    } else {
+      celebCard.style.background = '';
+      celebCard.style.border = '';
+      celebLabel.textContent = '¡Nuevo cromo!';
+      celebLabel.style.color = '';
+      celebName.style.fontFamily = '';
+      celebName.style.color = '';
+      celebName.style.fontSize = '';
+      celebDesc.style.color = '';
+      celebHint.style.color = '';
+    }
 
     celebration.style.opacity = '1';
     celebration.style.pointerEvents = 'auto';
