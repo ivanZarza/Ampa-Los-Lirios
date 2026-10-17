@@ -49,13 +49,20 @@ const ok = Astro.url.searchParams.get('ok');
             placeholder="tu@correo.com"
             class="input-field mb-4"
           />
+          <label for="password" class="label-field">Contraseña</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            autocomplete="current-password"
+            placeholder="Tu contraseña"
+            class="input-field mb-4"
+          />
           <button type="submit" class="btn-primary w-full">
-            Enviar enlace de acceso
+            Entrar
           </button>
         </form>
-        <p class="text-xs text-gray-400 text-center mt-4">
-          Recibirás un enlace en tu correo para acceder sin contraseña.
-        </p>
       </div>
 
       <div class="text-center mt-6">

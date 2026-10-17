@@ -1,6 +1,8 @@
 import { supabase, getServiceClient } from './supabase';
 import type { AstroCookies } from 'astro';
 
+const SUPER_ADMIN_EMAIL = 'ivanzarzaestevez@gmail.com';
+
 export async function getSession(cookies: AstroCookies) {
   const accessToken = cookies.get('sb-access-token')?.value;
   const refreshToken = cookies.get('sb-refresh-token')?.value;
@@ -51,5 +53,16 @@ export async function requireAdmin(cookies: AstroCookies) {
   const admin = await isAdmin(session.user.email);
   if (!admin) return null;
 
+  return session;
+}
+
+export function isSuperAdmin(email: string): boolean {
+  return email.toLowerCase() === SUPER_ADMIN_EMAIL;
+}
+
+export async function requireSuperAdmin(cookies: AstroCookies) {
+  const session = await requireAdmin(cookies);
+  if (!session?.user?.email) return null;
+  if (!isSuperAdmin(session.user.email)) return null;
   return session;
 }

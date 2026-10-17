@@ -1,9 +1,11 @@
 ---
 import Admin from '../../layouts/Admin.astro';
-import { requireAdmin } from '../../lib/auth';
+import { requireAdmin, isSuperAdmin } from '../../lib/auth';
 
 const session = await requireAdmin(Astro.cookies);
 if (!session) return Astro.redirect('/admin/login');
+
+const superAdmin = isSuperAdmin(session.user.email!);
 ---
 
 <Admin title="Panel de administración">
@@ -34,5 +36,14 @@ if (!session) return Astro.redirect('/admin/login');
       <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Búsqueda del tesoro</h2>
       <p class="text-sm text-gray-500 mt-1">Subir imágenes de los cromos</p>
     </a>
+
+    {superAdmin && (
+      <a href="/admin/equipo" class="card p-6 hover:shadow-lg transition-shadow group border-2 border-dashed border-verde-200">
+        <div class="text-3xl mb-3">👥</div>
+        <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Equipo</h2>
+        <p class="text-sm text-gray-500 mt-1">Gestionar administradores</p>
+        <span class="text-[10px] font-bold text-verde-600 uppercase tracking-wide mt-2 block">Solo superadmin</span>
+      </a>
+    )}
   </div>
 </Admin>
