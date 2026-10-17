@@ -40,7 +40,10 @@ const year = new Date().getFullYear();
 
     <div class="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
       <p>&copy; {year} AMPA Los Lirios. Todos los derechos reservados.</p>
-      <a href="/privacidad" class="hover:text-white transition-colors duration-300">Privacidad y aviso legal</a>
+      <div class="flex items-center gap-4">
+        <a href="/privacidad" class="hover:text-white transition-colors duration-300">Privacidad y aviso legal</a>
+        <a href="/admin/login" class="hover:text-white transition-colors duration-300 opacity-60 hover:opacity-100">Administración</a>
+      </div>
     </div>
   </div>
 </footer>
