@@ -91,7 +91,7 @@ try {
 </button>
 
 <!-- Album overlay -->
-<div id="album-overlay" class="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm
+<div id="album-overlay" class="fixed inset-0 z-[200] bg-black/60
      flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-500">
   <div id="album-card" class="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[85vh] overflow-y-auto
        transform scale-95 transition-transform duration-500 relative">
@@ -106,13 +106,18 @@ try {
     <div id="album-grid" class="p-5 grid grid-cols-2 gap-3"></div>
     <div class="p-5 pt-0">
       <p id="album-hint" class="text-xs text-gray-400 text-center italic"></p>
+      <div class="mt-4 pt-3 border-t border-gray-100 text-center">
+        <button id="album-reset" class="text-[11px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer">
+          Reiniciar colección
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- Celebration overlay (single cromo) -->
 <div id="celebration" class="fixed inset-0 z-[300] flex items-center justify-center p-4
-     bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+     bg-black/50 opacity-0 pointer-events-none transition-opacity duration-300">
   <div id="celeb-card" class="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-xs w-full
        transform scale-75 transition-transform duration-500">
     <div id="celeb-visual" class="mb-3 flex items-center justify-center"></div>
@@ -147,7 +152,7 @@ try {
        style="opacity:0; transition: opacity 1s ease">
       Has descubierto todos los secretos de Los Lirios 🌿
     </p>
-    <button id="finale-close" class="mt-10 px-8 py-3 bg-white/10 backdrop-blur-sm text-white/80 rounded-full
+    <button id="finale-close" class="mt-10 px-8 py-3 bg-white/10 text-white/80 rounded-full
              border border-white/20 hover:bg-white/20 hover:text-white transition-all duration-300
              cursor-pointer text-sm tracking-wide"
              style="opacity:0; pointer-events:none; transition: opacity 0.8s ease">
@@ -571,9 +576,21 @@ try {
     albumCard.style.transform = 'scale(0.95)';
   }
 
+  const albumReset = document.getElementById('album-reset')!;
+
   albumBtn.addEventListener('click', openAlbum);
   albumClose.addEventListener('click', closeAlbum);
   albumOverlay.addEventListener('click', (e) => { if (e.target === albumOverlay) closeAlbum(); });
+  albumReset.addEventListener('click', () => {
+    if (!confirm('¿Seguro que quieres reiniciar tu colección? Perderás todos los cromos encontrados.')) return;
+    found = new Set();
+    saveFound(found);
+    updateAlbumBtn();
+    renderAlbum();
+    closeAlbum();
+    albumBtn.style.opacity = '0';
+    albumBtn.style.pointerEvents = 'none';
+  });
 
   function unlock(id: string) {
     if (found.has(id)) return;
