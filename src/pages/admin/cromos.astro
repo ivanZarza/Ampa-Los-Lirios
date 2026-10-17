@@ -117,6 +117,34 @@ const cromosMap = new Map((cromos || []).map(c => [c.slug, c]));
 
 const editSlug = Astro.url.searchParams.get('editar');
 const editCromo = editSlug ? cromosMap.get(editSlug) : null;
+
+const PREVIEW_CROMOS = [
+  { slug: 'logo7', emoji: '🐱', rarity: 'comun', name: 'Gato Positivo', theme: 'Actitud positiva', desc: 'Con buena actitud, todo sale mejor', animType: 'burst' },
+  { slug: 'ladybug', emoji: '🐞', rarity: 'comun', name: 'Mariquita de la Suerte', theme: 'Amistad', desc: 'Los buenos amigos son el mayor tesoro', animType: 'rain' },
+  { slug: 'lirios', emoji: '🌸', rarity: 'raro', name: 'Flor de Lirio', theme: 'Creatividad', desc: 'Tu imaginación puede crear mundos enteros', animType: 'reveal' },
+  { slug: 'konami', emoji: '🐲', rarity: 'legendario', name: 'Dragón Imparable', theme: 'Superación', desc: 'Cada intento te acerca más a tu meta', animType: 'fireworks' },
+  { slug: 'comunidad', emoji: '🦊', rarity: 'raro', name: 'Zorro Amigo', theme: 'Respeto', desc: 'Tratarnos bien hace que todos estemos mejor', animType: 'rain' },
+  { slug: 'nocturno', emoji: '🦉', rarity: 'epico', name: 'Búho Valiente', theme: 'Confianza en uno mismo', desc: 'Confía en ti, eres más valiente de lo que crees', animType: 'burst' },
+  { slug: 'privacidad', emoji: '🐢', rarity: 'raro', name: 'Tortuga Responsable', theme: 'Responsabilidad', desc: 'Ser responsable es cosa de mayores… ¡y de valientes!', animType: 'reveal' },
+  { slug: 'estrella', emoji: '⭐', rarity: 'epico', name: 'Estrella del Esfuerzo', theme: 'Esfuerzo', desc: 'Cuando te esfuerzas, brillas con luz propia', animType: 'fireworks' },
+  { slug: 'camara', emoji: '🦋', rarity: 'raro', name: 'Mariposa Protectora', theme: 'Cuidar a los más pequeños', desc: 'Los más pequeños necesitan nuestro cariño y ejemplo', animType: 'rain' },
+  { slug: 'coleccion', emoji: '🦄', rarity: 'legendario', name: 'Unicornio del Equipo', theme: 'Trabajo en equipo', desc: 'Juntos somos más fuertes que por separado', animType: 'burst' },
+];
+
+const previewData = PREVIEW_CROMOS.map(h => {
+  const db = cromosMap.get(h.slug);
+  return {
+    id: h.slug,
+    emoji: h.emoji,
+    name: db?.nombre || h.name,
+    desc: db?.descripcion || h.desc,
+    rarity: h.rarity,
+    theme: db?.tematica || h.theme,
+    color: db?.color || '#4a8f4a',
+    imageUrl: db?.imagen_ruta ? `${bucketUrl}/${db.imagen_ruta}` : null,
+    animType: h.animType,
+  };
+});
 ---
 
 <Admin title="Cromos - Búsqueda del tesoro">
@@ -296,6 +324,55 @@ const editCromo = editSlug ? cromosMap.get(editSlug) : null;
     )}
   </div>
 
+  <!-- ========= PREVIEW DE ANIMACIONES ========= -->
+  <div class="mt-8 card p-6">
+    <h3 class="font-bold text-gray-900 mb-1">🎬 Probar animaciones</h3>
+    <p class="text-xs text-gray-400 mb-4">
+      Haz clic en un cromo para ver su animación y tarjeta tal y como la verán los niños. Haz clic en cualquier sitio para cerrar.
+    </p>
+
+    <div id="pv-config" data-cromos={JSON.stringify(previewData)} style="display:none"></div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+      {previewData.map((cromo) => (
+        <button
+          data-preview={cromo.id}
+          class="group flex flex-col items-center gap-1 p-3 rounded-xl border-2 border-gray-200
+                 hover:border-verde-400 hover:bg-verde-50 transition-all cursor-pointer text-center"
+        >
+          <div class="w-12 h-12 flex items-center justify-center">
+            {cromo.imageUrl ? (
+              <img src={cromo.imageUrl} alt={cromo.name} class="w-10 h-10 object-contain" />
+            ) : (
+              <span class="text-2xl">{cromo.emoji}</span>
+            )}
+          </div>
+          <span class="text-[10px] font-bold text-gray-900 leading-tight">{cromo.name}</span>
+          <span class="text-[9px] text-gray-400 uppercase tracking-wide">{cromo.animType}</span>
+        </button>
+      ))}
+    </div>
+
+    <button id="pv-all-btn" class="btn-outline text-xs">
+      ▶ Probar todas en secuencia (4 s cada una)
+    </button>
+  </div>
+
+  <!-- Preview overlay -->
+  <div id="pv-overlay" class="fixed inset-0 z-[9000] flex items-center justify-center p-4
+       bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="pv-card" class="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-xs w-full
+         transform scale-75 transition-transform duration-500">
+      <div id="pv-visual" class="mb-3 flex items-center justify-center"></div>
+      <div id="pv-label" class="text-xs font-bold text-verde-500 uppercase tracking-widest mb-1"></div>
+      <h3 id="pv-name" class="text-xl font-extrabold text-gray-900 mb-1"></h3>
+      <p id="pv-desc" class="text-sm text-gray-500"></p>
+      <div id="pv-rarity" class="mt-3 text-xs font-bold px-3 py-1 rounded-full inline-block"></div>
+      <p id="pv-hint" class="text-[11px] text-gray-400 mt-4 opacity-60">Toca en cualquier sitio para cerrar</p>
+    </div>
+  </div>
+  <div id="pv-particles" class="fixed inset-0 pointer-events-none z-[8999] overflow-hidden" aria-hidden="true"></div>
+
   <div class="mt-8 bg-malva-50 rounded-xl p-5 border border-malva-100">
     <h3 class="font-bold text-malva-800 text-sm mb-2">💡 ¿Cómo funciona?</h3>
     <ul class="text-sm text-malva-700 space-y-1">
@@ -306,3 +383,437 @@ const editCromo = editSlug ? cromosMap.get(editSlug) : null;
     </ul>
   </div>
 </Admin>
+
+<style is:global>
+  @keyframes anim-rain {
+    0% { transform: translateY(-40px) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.7; }
+    100% { transform: translateY(105vh) rotate(var(--rot, 540deg)); opacity: 0; }
+  }
+  .rain-particle {
+    position: fixed;
+    top: -40px;
+    pointer-events: none;
+    animation: anim-rain var(--dur, 3s) linear var(--del, 0s) infinite;
+  }
+  @keyframes anim-burst {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    60% { opacity: 0.9; }
+    100% { transform: translate(var(--px), var(--py)) scale(var(--end-scale, 0.3)); opacity: 0; }
+  }
+  .burst-particle {
+    position: fixed;
+    pointer-events: none;
+    animation: anim-burst var(--dur, 1.8s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes anim-reveal {
+    0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+    60% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+    80% { transform: scale(0.95) rotate(-1deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .reveal-item {
+    position: fixed;
+    pointer-events: none;
+    animation: anim-reveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes anim-shimmer {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  .reveal-shimmer {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    border: 3px solid;
+    animation: anim-shimmer 1.5s ease-out infinite;
+  }
+  @keyframes anim-fw-spark {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--sx), var(--sy)) scale(0); opacity: 0; }
+  }
+  .fw-spark {
+    position: fixed;
+    pointer-events: none;
+    animation: anim-fw-spark var(--dur, 1.2s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes celeb-bounce {
+    0% { transform: scale(0.3); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .celeb-bounce {
+    animation: celeb-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+</style>
+
+<script>
+  interface PreviewCromo {
+    id: string;
+    emoji: string;
+    name: string;
+    desc: string;
+    rarity: string;
+    theme: string;
+    color: string;
+    imageUrl: string | null;
+    animType: string;
+  }
+
+  const RARITY_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
+    comun:      { label: 'Común',      bgColor: '#f3f4f6', textColor: '#4b5563' },
+    raro:       { label: 'Raro',       bgColor: '#dbeafe', textColor: '#1d4ed8' },
+    epico:      { label: 'Épico',      bgColor: '#f3e8ff', textColor: '#7e22ce' },
+    legendario: { label: 'Legendario', bgColor: '#fef3c7', textColor: '#b45309' },
+  };
+
+  const CARD_THEMES: Record<string, {
+    font: string; labelText: string; labelColor: string;
+    titleColor: string; descColor: string; hintColor: string;
+    cardBg: string; cardBorder: string;
+  }> = {
+    logo7: {
+      font: "'Fredoka', sans-serif", labelText: '¡Miau!', labelColor: '#ea580c',
+      titleColor: '#9a3412', descColor: '#c2410c', hintColor: '#d4a373',
+      cardBg: 'linear-gradient(135deg, #fff7ed, #ffedd5)', cardBorder: '2px solid #fdba74',
+    },
+    ladybug: {
+      font: "'Fredoka', sans-serif", labelText: '¡Qué suerte!', labelColor: '#dc2626',
+      titleColor: '#991b1b', descColor: '#b91c1c', hintColor: '#fca5a5',
+      cardBg: 'linear-gradient(135deg, #fef2f2, #fee2e2)', cardBorder: '2px solid #fca5a5',
+    },
+    lirios: {
+      font: "'Pacifico', cursive", labelText: '¡Floreciendo!', labelColor: '#c026d3',
+      titleColor: '#86198f', descColor: '#a21caf', hintColor: '#d8b4fe',
+      cardBg: 'linear-gradient(135deg, #fdf4ff, #f5d0fe)', cardBorder: '2px solid #e879f9',
+    },
+    konami: {
+      font: "'Bangers', cursive", labelText: '¡POWER UP!', labelColor: '#a78bfa',
+      titleColor: '#e0e7ff', descColor: '#c4b5fd', hintColor: '#6366f1',
+      cardBg: 'linear-gradient(135deg, #0f0f23, #1a1a3e)', cardBorder: '2px solid #8b5cf6',
+    },
+    comunidad: {
+      font: "'Fredoka', sans-serif", labelText: '¡Juntos!', labelColor: '#ea580c',
+      titleColor: '#78350f', descColor: '#92400e', hintColor: '#d4a373',
+      cardBg: 'linear-gradient(135deg, #fffbeb, #fef3c7)', cardBorder: '2px solid #fbbf24',
+    },
+    nocturno: {
+      font: "'Creepster', cursive", labelText: '¡Búho nocturno!', labelColor: '#818cf8',
+      titleColor: '#e0e7ff', descColor: '#c7d2fe', hintColor: '#6366f1',
+      cardBg: 'linear-gradient(135deg, #1e1b4b, #312e81)', cardBorder: '2px solid #6366f1',
+    },
+    privacidad: {
+      font: "'Caveat', cursive", labelText: '¡Bien leído!', labelColor: '#059669',
+      titleColor: '#064e3b', descColor: '#047857', hintColor: '#6ee7b7',
+      cardBg: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', cardBorder: '2px solid #6ee7b7',
+    },
+    estrella: {
+      font: "'Orbitron', sans-serif", labelText: '¡ESTELAR!', labelColor: '#d97706',
+      titleColor: '#78350f', descColor: '#92400e', hintColor: '#fbbf24',
+      cardBg: 'linear-gradient(135deg, #fffbeb, #fef3c7)', cardBorder: '2px solid #f59e0b',
+    },
+    camara: {
+      font: "'Pacifico', cursive", labelText: '¡Flash!', labelColor: '#0891b2',
+      titleColor: '#164e63', descColor: '#0e7490', hintColor: '#67e8f9',
+      cardBg: 'linear-gradient(135deg, #ecfeff, #cffafe)', cardBorder: '2px solid #67e8f9',
+    },
+  };
+
+  const cfgEl = document.getElementById('pv-config');
+  const cromos: PreviewCromo[] = cfgEl ? JSON.parse(cfgEl.dataset.cromos || '[]') : [];
+
+  const pvOverlay   = document.getElementById('pv-overlay')!;
+  const pvCard      = document.getElementById('pv-card')!;
+  const pvVisual    = document.getElementById('pv-visual')!;
+  const pvLabel     = document.getElementById('pv-label')!;
+  const pvName      = document.getElementById('pv-name')!;
+  const pvDesc      = document.getElementById('pv-desc')!;
+  const pvRarity    = document.getElementById('pv-rarity')!;
+  const pvHint      = document.getElementById('pv-hint')!;
+  const pvParticles = document.getElementById('pv-particles')!;
+  const pvAllBtn    = document.getElementById('pv-all-btn')!;
+
+  let pvAnimInterval: ReturnType<typeof setInterval> | null = null;
+  let pvSeqInterval: ReturnType<typeof setInterval> | null = null;
+
+  if (!document.querySelector('link[data-easter-fonts]')) {
+    const fl = document.createElement('link');
+    fl.rel = 'stylesheet';
+    fl.dataset.easterFonts = '';
+    fl.href = 'https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@700&family=Creepster&family=Fredoka:wght@600&family=Orbitron:wght@700&family=Pacifico&display=swap';
+    document.head.appendChild(fl);
+  }
+
+  function pvVisualHTML(cromo: PreviewCromo): string {
+    if (cromo.imageUrl) {
+      return `<img src="${cromo.imageUrl}" alt="${cromo.name}" class="w-24 h-24 object-contain" />`;
+    }
+    return `<span class="text-6xl">${cromo.emoji}</span>`;
+  }
+
+  function pvClose() {
+    pvOverlay.style.opacity = '0';
+    pvOverlay.style.pointerEvents = 'none';
+    pvCard.style.transform = 'scale(0.75)';
+    pvCard.style.background = '';
+    pvCard.style.border = '';
+    pvLabel.textContent = '';
+    pvLabel.style.color = '';
+    pvName.style.fontFamily = '';
+    pvName.style.color = '';
+    pvName.style.fontSize = '';
+    pvDesc.style.color = '';
+    pvHint.style.color = '';
+    pvParticles.innerHTML = '';
+    if (pvAnimInterval) { clearInterval(pvAnimInterval); pvAnimInterval = null; }
+  }
+
+  function pvShow(cromo: PreviewCromo) {
+    pvClose();
+    pvVisual.innerHTML = `<div class="celeb-bounce">${pvVisualHTML(cromo)}</div>`;
+    pvName.textContent = cromo.theme || cromo.name;
+    pvDesc.textContent = cromo.theme ? `${cromo.name} — ${cromo.desc}` : cromo.desc;
+
+    const r = RARITY_LABELS[cromo.rarity];
+    if (r) {
+      pvRarity.textContent = r.label;
+      pvRarity.style.background = r.bgColor;
+      pvRarity.style.color = r.textColor;
+    }
+
+    const t = CARD_THEMES[cromo.id];
+    if (t) {
+      pvCard.style.background = t.cardBg;
+      pvCard.style.border = t.cardBorder;
+      pvLabel.textContent = t.labelText;
+      pvLabel.style.color = t.labelColor;
+      pvName.style.fontFamily = t.font;
+      pvName.style.color = t.titleColor;
+      pvName.style.fontSize = '1.5rem';
+      pvDesc.style.color = t.descColor;
+      pvHint.style.color = t.hintColor;
+    }
+
+    pvOverlay.style.opacity = '1';
+    pvOverlay.style.pointerEvents = 'auto';
+    pvCard.style.transform = 'scale(1)';
+
+    pvSpawnAnimation(cromo);
+
+    pvOverlay.addEventListener('click', () => {
+      pvClose();
+      if (pvSeqInterval) { clearInterval(pvSeqInterval); pvSeqInterval = null; pvAllBtn.textContent = '▶ Probar todas en secuencia (4 s cada una)'; }
+    }, { once: true });
+  }
+
+  function pvSpawnAnimation(cromo: PreviewCromo) {
+    pvParticles.innerHTML = '';
+    if (pvAnimInterval) { clearInterval(pvAnimInterval); pvAnimInterval = null; }
+    switch (cromo.animType) {
+      case 'rain': pvSpawnRain(cromo); break;
+      case 'burst': pvSpawnBurst(cromo); break;
+      case 'reveal': pvSpawnReveal(cromo); break;
+      case 'fireworks': pvSpawnFireworks(cromo); break;
+      default: pvSpawnBurst(cromo);
+    }
+  }
+
+  function pvSpawnRain(cromo: PreviewCromo) {
+    const emojis = [cromo.emoji, '✨', '🌟', '💫', '⭐', '🎊'];
+    const colors = [cromo.color, '#4a8f4a', '#9b72b0', '#f59e0b', '#60a5fa'];
+    for (let i = 0; i < 50; i++) {
+      const el = document.createElement('div');
+      el.className = 'rain-particle';
+      el.style.left = (Math.random() * 100) + 'vw';
+      el.style.setProperty('--dur', (2.5 + Math.random() * 3) + 's');
+      el.style.setProperty('--del', (Math.random() * 4) + 's');
+      el.style.setProperty('--rot', (360 + Math.random() * 720) + 'deg');
+      if (Math.random() > 0.4) {
+        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        el.style.fontSize = (0.8 + Math.random() * 1.2) + 'rem';
+      } else {
+        el.style.width = (5 + Math.random() * 7) + 'px';
+        el.style.height = (5 + Math.random() * 7) + 'px';
+        el.style.background = colors[Math.floor(Math.random() * colors.length)];
+        el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      }
+      pvParticles.appendChild(el);
+    }
+  }
+
+  function pvSpawnBurst(cromo: PreviewCromo) {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const emojis = [cromo.emoji, '✨', '🌟', '💫', '🎉', '🎊'];
+    const colors = [cromo.color, '#4a8f4a', '#9b72b0', '#f59e0b', '#ef4444'];
+
+    function doBurst() {
+      for (let i = 0; i < 28; i++) {
+        const el = document.createElement('div');
+        el.className = 'burst-particle';
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+        const angle = (Math.PI * 2 * i) / 28 + (Math.random() - 0.5) * 0.3;
+        const dist = 100 + Math.random() * 250;
+        el.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+        el.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+        el.style.setProperty('--dur', (1.5 + Math.random() * 1) + 's');
+        el.style.setProperty('--end-scale', (0.2 + Math.random() * 0.3).toString());
+        el.style.animationDelay = (Math.random() * 0.2) + 's';
+        if (Math.random() > 0.35) {
+          el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          el.style.fontSize = (1 + Math.random() * 1) + 'rem';
+        } else {
+          el.style.width = (6 + Math.random() * 8) + 'px';
+          el.style.height = (6 + Math.random() * 8) + 'px';
+          el.style.background = colors[Math.floor(Math.random() * colors.length)];
+          el.style.borderRadius = '50%';
+        }
+        pvParticles.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      }
+    }
+
+    doBurst();
+    pvAnimInterval = setInterval(doBurst, 2500);
+  }
+
+  function pvSpawnReveal(cromo: PreviewCromo) {
+    const size = Math.min(window.innerWidth, window.innerHeight) * 0.7;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    const bg = document.createElement('div');
+    bg.className = 'reveal-item';
+    bg.style.left = (cx - size / 2) + 'px';
+    bg.style.top = (cy - size / 2) + 'px';
+    bg.style.width = size + 'px';
+    bg.style.height = size + 'px';
+    bg.style.display = 'flex';
+    bg.style.alignItems = 'center';
+    bg.style.justifyContent = 'center';
+    if (cromo.imageUrl) {
+      bg.innerHTML = `<img src="${cromo.imageUrl}" alt="${cromo.name}" style="max-width:100%;max-height:100%;object-fit:contain;opacity:0.2;filter:drop-shadow(0 0 40px ${cromo.color})" />`;
+    } else {
+      bg.innerHTML = `<span style="font-size:${size * 0.7}px;opacity:0.15;filter:drop-shadow(0 0 40px ${cromo.color})">${cromo.emoji}</span>`;
+    }
+    pvParticles.appendChild(bg);
+
+    for (let i = 0; i < 3; i++) {
+      const ring = document.createElement('div');
+      ring.className = 'reveal-shimmer';
+      const ringSize = size * 0.4;
+      ring.style.left = (cx - ringSize / 2) + 'px';
+      ring.style.top = (cy - ringSize / 2) + 'px';
+      ring.style.width = ringSize + 'px';
+      ring.style.height = ringSize + 'px';
+      ring.style.borderColor = cromo.color;
+      ring.style.animationDelay = (i * 0.5) + 's';
+      pvParticles.appendChild(ring);
+    }
+
+    const sparkEmojis = ['✨', '💫', '🌟', '⭐'];
+    pvAnimInterval = setInterval(() => {
+      for (let i = 0; i < 4; i++) {
+        const s = document.createElement('div');
+        s.className = 'burst-particle';
+        const sx = cx + (Math.random() - 0.5) * size;
+        const sy = cy + (Math.random() - 0.5) * size;
+        s.style.left = sx + 'px';
+        s.style.top = sy + 'px';
+        s.textContent = sparkEmojis[Math.floor(Math.random() * sparkEmojis.length)];
+        s.style.fontSize = (0.6 + Math.random() * 0.6) + 'rem';
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 60;
+        s.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+        s.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+        s.style.setProperty('--dur', (1 + Math.random() * 0.5) + 's');
+        pvParticles.appendChild(s);
+        setTimeout(() => s.remove(), 2000);
+      }
+    }, 800);
+  }
+
+  function pvSpawnFireworks(cromo: PreviewCromo) {
+    const colors = [cromo.color, '#ff4444', '#44aaff', '#ffdd44', '#ff88ff', '#44ff88'];
+    const emojis = [cromo.emoji, '✨', '🌟', '💥', '⭐'];
+
+    function fireworkBurst(x: number, y: number) {
+      const burstColor = colors[Math.floor(Math.random() * colors.length)];
+      const count = 14 + Math.floor(Math.random() * 10);
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'fw-spark';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+        const dist = 40 + Math.random() * 120;
+        el.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+        el.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+        el.style.setProperty('--dur', (0.8 + Math.random() * 0.8) + 's');
+        if (Math.random() > 0.5) {
+          el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          el.style.fontSize = (0.6 + Math.random() * 0.8) + 'rem';
+        } else {
+          el.style.width = (4 + Math.random() * 5) + 'px';
+          el.style.height = (4 + Math.random() * 5) + 'px';
+          el.style.background = burstColor;
+          el.style.borderRadius = '50%';
+          el.style.boxShadow = `0 0 6px ${burstColor}`;
+        }
+        pvParticles.appendChild(el);
+        setTimeout(() => el.remove(), 2500);
+      }
+    }
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    fireworkBurst(vw * 0.3, vh * 0.3);
+    setTimeout(() => fireworkBurst(vw * 0.7, vh * 0.4), 300);
+    setTimeout(() => fireworkBurst(vw * 0.5, vh * 0.25), 600);
+
+    pvAnimInterval = setInterval(() => {
+      fireworkBurst(
+        vw * 0.15 + Math.random() * vw * 0.7,
+        vh * 0.15 + Math.random() * vh * 0.5
+      );
+    }, 1200);
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('[data-preview]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cromo = cromos.find(c => c.id === btn.dataset.preview);
+      if (cromo) pvShow(cromo);
+    });
+  });
+
+  pvAllBtn.addEventListener('click', () => {
+    if (pvSeqInterval) {
+      clearInterval(pvSeqInterval);
+      pvSeqInterval = null;
+      pvClose();
+      pvAllBtn.textContent = '▶ Probar todas en secuencia (4 s cada una)';
+      return;
+    }
+
+    let idx = 0;
+    pvAllBtn.textContent = '⏹ Detener secuencia';
+
+    function showNext() {
+      if (idx >= cromos.length) {
+        pvClose();
+        if (pvSeqInterval) { clearInterval(pvSeqInterval); pvSeqInterval = null; }
+        pvAllBtn.textContent = '▶ Probar todas en secuencia (4 s cada una)';
+        return;
+      }
+      pvShow(cromos[idx]);
+      pvOverlay.removeEventListener('click', pvClose);
+      idx++;
+    }
+
+    showNext();
+    pvSeqInterval = setInterval(showNext, 4000);
+  });
+</script>
