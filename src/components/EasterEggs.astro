@@ -10,16 +10,26 @@ try {
 const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/cromos`;
 
 const HARDCODED = [
-  { slug: 'logo7',      emoji: '🐱', rarity: 'comun',      hint: 'Prueba a tocar el logo varias veces…' },
-  { slug: 'ladybug',    emoji: '🐞', rarity: 'comun',      hint: 'Mira bien las esquinas de la pantalla…' },
-  { slug: 'lirios',     emoji: '🌸', rarity: 'raro',       hint: 'Escribe el nombre de nuestras flores…' },
-  { slug: 'konami',     emoji: '🐲', rarity: 'legendario', hint: '↑↑↓↓←→←→BA… ¿te suena?' },
-  { slug: 'comunidad',  emoji: '🦊', rarity: 'raro',       hint: 'Busca la palabra "comunidad" en la portada…' },
-  { slug: 'nocturno',   emoji: '🦉', rarity: 'epico',      hint: 'Algunos secretos solo se ven de noche…' },
-  { slug: 'privacidad', emoji: '🐢', rarity: 'raro',       hint: 'Alguien que lee la letra pequeña merece un premio…' },
-  { slug: 'estrella',   emoji: '⭐', rarity: 'epico',      hint: 'Hay una estrella muy pequeña en la página de fiestas…' },
-  { slug: 'camara',     emoji: '🦋', rarity: 'raro',       hint: 'Toca el icono de la cámara en la galería…' },
-  { slug: 'coleccion',  emoji: '🦄', rarity: 'legendario', hint: 'Encuentra los 9 cromos anteriores…' },
+  { slug: 'logo7', emoji: '🐱', rarity: 'comun', hint: 'Prueba a tocar el logo varias veces…',
+    name: 'Gato Positivo', theme: 'Actitud positiva', desc: 'Con buena actitud, todo sale mejor' },
+  { slug: 'ladybug', emoji: '🐞', rarity: 'comun', hint: 'Mira bien las esquinas de la pantalla…',
+    name: 'Mariquita de la Suerte', theme: 'Amistad', desc: 'Los buenos amigos son el mayor tesoro' },
+  { slug: 'lirios', emoji: '🌸', rarity: 'raro', hint: 'Escribe el nombre de nuestras flores…',
+    name: 'Flor de Lirio', theme: 'Creatividad', desc: 'Tu imaginación puede crear mundos enteros' },
+  { slug: 'konami', emoji: '🐲', rarity: 'legendario', hint: '↑↑↓↓←→←→BA… ¿te suena?',
+    name: 'Dragón Imparable', theme: 'Superación', desc: 'Cada intento te acerca más a tu meta' },
+  { slug: 'comunidad', emoji: '🦊', rarity: 'raro', hint: 'Busca la palabra "comunidad" en la portada…',
+    name: 'Zorro Amigo', theme: 'Respeto', desc: 'Tratarnos bien hace que todos estemos mejor' },
+  { slug: 'nocturno', emoji: '🦉', rarity: 'epico', hint: 'Algunos secretos solo se ven de noche…',
+    name: 'Búho Valiente', theme: 'Confianza en uno mismo', desc: 'Confía en ti, eres más valiente de lo que crees' },
+  { slug: 'privacidad', emoji: '🐢', rarity: 'raro', hint: 'Alguien que lee la letra pequeña merece un premio…',
+    name: 'Tortuga Responsable', theme: 'Responsabilidad', desc: 'Ser responsable es cosa de mayores… ¡y de valientes!' },
+  { slug: 'estrella', emoji: '⭐', rarity: 'epico', hint: 'Hay una estrella muy pequeña en la página de fiestas…',
+    name: 'Estrella del Esfuerzo', theme: 'Esfuerzo', desc: 'Cuando te esfuerzas, brillas con luz propia' },
+  { slug: 'camara', emoji: '🦋', rarity: 'raro', hint: 'Toca el icono de la cámara en la galería…',
+    name: 'Mariposa Protectora', theme: 'Cuidar a los más pequeños', desc: 'Los más pequeños necesitan nuestro cariño y ejemplo' },
+  { slug: 'coleccion', emoji: '🦄', rarity: 'legendario', hint: 'Encuentra los 9 cromos anteriores…',
+    name: 'Unicornio del Equipo', theme: 'Trabajo en equipo', desc: 'Juntos somos más fuertes que por separado' },
 ];
 
 const cromosData = HARDCODED.map(h => {
@@ -27,11 +37,11 @@ const cromosData = HARDCODED.map(h => {
   return {
     id: h.slug,
     emoji: h.emoji,
-    name: db?.nombre || h.slug,
-    desc: db?.descripcion || '',
+    name: db?.nombre || h.name || h.slug,
+    desc: db?.descripcion || h.desc || '',
     rarity: h.rarity,
     hint: h.hint,
-    theme: db?.tematica || '',
+    theme: db?.tematica || h.theme || '',
     color: db?.color || '#4a8f4a',
     imageUrl: db?.imagen_ruta ? `${bucketUrl}/${db.imagen_ruta}` : null,
   };
