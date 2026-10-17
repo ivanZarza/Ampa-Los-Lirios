@@ -102,7 +102,7 @@ try {
 
 <!-- Celebration overlay (single cromo) -->
 <div id="celebration" class="fixed inset-0 z-[300] flex items-center justify-center p-4
-     opacity-0 pointer-events-none transition-opacity duration-300">
+     bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
   <div id="celeb-card" class="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-xs w-full
        transform scale-75 transition-transform duration-500">
     <div id="celeb-visual" class="mb-3 flex items-center justify-center"></div>
@@ -110,6 +110,7 @@ try {
     <h3 id="celeb-name" class="text-xl font-extrabold text-gray-900 mb-1"></h3>
     <p id="celeb-desc" class="text-sm text-gray-500"></p>
     <div id="celeb-rarity" class="mt-3 text-xs font-bold px-3 py-1 rounded-full inline-block"></div>
+    <p class="text-[11px] text-gray-400 mt-4 opacity-60">Toca en cualquier sitio para cerrar</p>
   </div>
 </div>
 
@@ -146,24 +147,68 @@ try {
 </div>
 
 <style>
-  @keyframes particle-burst {
+  /* Rain — items fall from top, loop continuously */
+  @keyframes anim-rain {
+    0% { transform: translateY(-40px) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.7; }
+    100% { transform: translateY(105vh) rotate(var(--rot, 540deg)); opacity: 0; }
+  }
+  .rain-particle {
+    position: fixed;
+    top: -40px;
+    pointer-events: none;
+    animation: anim-rain var(--dur, 3s) linear var(--del, 0s) infinite;
+  }
+
+  /* Burst — radial explosion from center */
+  @keyframes anim-burst {
     0% { transform: translate(0, 0) scale(1); opacity: 1; }
-    100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
+    60% { opacity: 0.9; }
+    100% { transform: translate(var(--px), var(--py)) scale(var(--end-scale, 0.3)); opacity: 0; }
   }
-  .particle {
+  .burst-particle {
     position: fixed;
     pointer-events: none;
-    animation: particle-burst 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: anim-burst var(--dur, 1.8s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
-  @keyframes confetti {
-    0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+
+  /* Reveal — large item scales up from center */
+  @keyframes anim-reveal {
+    0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+    60% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+    80% { transform: scale(0.95) rotate(-1deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
   }
-  .confetti {
+  .reveal-item {
     position: fixed;
-    top: -10px;
     pointer-events: none;
-    z-index: 298;
+    animation: anim-reveal 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Shimmer ring behind reveal */
+  @keyframes anim-shimmer {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  .reveal-shimmer {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    border: 3px solid;
+    animation: anim-shimmer 1.5s ease-out infinite;
+  }
+
+  /* Firework sparks */
+  @keyframes anim-fw-spark {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--sx), var(--sy)) scale(0); opacity: 0; }
+  }
+  .fw-spark {
+    position: fixed;
+    pointer-events: none;
+    animation: anim-fw-spark var(--dur, 1.2s) cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   .cromo {
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -263,6 +308,20 @@ try {
     epico:      { label: 'Épico',      bg: 'bg-purple-100', text: 'text-purple-700' },
     legendario: { label: 'Legendario', bg: 'bg-amber-100',  text: 'text-amber-700' },
   };
+
+  const ANIM_TYPES: Record<string, string> = {
+    logo7: 'burst',
+    ladybug: 'rain',
+    lirios: 'reveal',
+    konami: 'fireworks',
+    comunidad: 'rain',
+    nocturno: 'burst',
+    privacidad: 'reveal',
+    estrella: 'fireworks',
+    camara: 'rain',
+  };
+
+  let celebAnimInterval: ReturnType<typeof setInterval> | null = null;
 
   function loadCromos(): Cromo[] {
     const el = document.getElementById('cromos-config');
@@ -411,12 +470,23 @@ try {
         showGrandFinale();
       } else {
         showCelebration(cromo);
-        spawnParticles(cromo.color);
+        spawnAnimation(cromo);
       }
     }
 
     if (found.size === 9 && !found.has('coleccion')) {
       setTimeout(() => unlock('coleccion'), 3000);
+    }
+  }
+
+  function closeCelebration() {
+    celebration.style.opacity = '0';
+    celebration.style.pointerEvents = 'none';
+    celebCard.style.transform = 'scale(0.75)';
+    particles.innerHTML = '';
+    if (celebAnimInterval) {
+      clearInterval(celebAnimInterval);
+      celebAnimInterval = null;
     }
   }
 
@@ -433,46 +503,181 @@ try {
     celebration.style.pointerEvents = 'auto';
     celebCard.style.transform = 'scale(1)';
 
-    setTimeout(() => {
-      celebration.style.opacity = '0';
-      celebration.style.pointerEvents = 'none';
-      celebCard.style.transform = 'scale(0.75)';
-    }, 3500);
+    celebration.addEventListener('click', closeCelebration, { once: true });
   }
 
-  function spawnParticles(color: string) {
+  function spawnAnimation(cromo: Cromo) {
+    particles.innerHTML = '';
+    if (celebAnimInterval) { clearInterval(celebAnimInterval); celebAnimInterval = null; }
+    const type = ANIM_TYPES[cromo.id] || 'burst';
+    switch (type) {
+      case 'rain': spawnRain(cromo); break;
+      case 'burst': spawnBurst(cromo); break;
+      case 'reveal': spawnReveal(cromo); break;
+      case 'fireworks': spawnFireworks(cromo); break;
+    }
+  }
+
+  function spawnRain(cromo: Cromo) {
+    const emojis = [cromo.emoji, '✨', '🌟', '💫', '⭐', '🎊'];
+    const colors = [cromo.color, '#4a8f4a', '#9b72b0', '#f59e0b', '#60a5fa'];
+    for (let i = 0; i < 50; i++) {
+      const el = document.createElement('div');
+      el.className = 'rain-particle';
+      el.style.left = (Math.random() * 100) + 'vw';
+      el.style.setProperty('--dur', (2.5 + Math.random() * 3) + 's');
+      el.style.setProperty('--del', (Math.random() * 4) + 's');
+      el.style.setProperty('--rot', (360 + Math.random() * 720) + 'deg');
+      if (Math.random() > 0.4) {
+        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        el.style.fontSize = (0.8 + Math.random() * 1.2) + 'rem';
+      } else {
+        el.style.width = (5 + Math.random() * 7) + 'px';
+        el.style.height = (5 + Math.random() * 7) + 'px';
+        el.style.background = colors[Math.floor(Math.random() * colors.length)];
+        el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      }
+      particles.appendChild(el);
+    }
+  }
+
+  function spawnBurst(cromo: Cromo) {
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
-    const emojis = ['✨', '⭐', '🌟', '💫', '🎉', '🎊'];
+    const emojis = [cromo.emoji, '✨', '🌟', '💫', '🎉', '🎊'];
+    const colors = [cromo.color, '#4a8f4a', '#9b72b0', '#f59e0b', '#ef4444'];
 
-    for (let i = 0; i < 24; i++) {
-      const el = document.createElement('div');
-      el.className = 'particle';
-      el.textContent = emojis[i % emojis.length];
-      el.style.left = cx + 'px';
-      el.style.top = cy + 'px';
-      el.style.fontSize = (1 + Math.random()) + 'rem';
-      const angle = (Math.PI * 2 * i) / 24;
-      const dist = 80 + Math.random() * 200;
-      el.style.setProperty('--px', Math.cos(angle) * dist + 'px');
-      el.style.setProperty('--py', Math.sin(angle) * dist + 'px');
-      el.style.animationDelay = (Math.random() * 0.3) + 's';
-      particles.appendChild(el);
-      setTimeout(() => el.remove(), 2000);
+    function doBurst() {
+      for (let i = 0; i < 28; i++) {
+        const el = document.createElement('div');
+        el.className = 'burst-particle';
+        el.style.left = cx + 'px';
+        el.style.top = cy + 'px';
+        const angle = (Math.PI * 2 * i) / 28 + (Math.random() - 0.5) * 0.3;
+        const dist = 100 + Math.random() * 250;
+        el.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+        el.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+        el.style.setProperty('--dur', (1.5 + Math.random() * 1) + 's');
+        el.style.setProperty('--end-scale', (0.2 + Math.random() * 0.3).toString());
+        el.style.animationDelay = (Math.random() * 0.2) + 's';
+        if (Math.random() > 0.35) {
+          el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          el.style.fontSize = (1 + Math.random() * 1) + 'rem';
+        } else {
+          el.style.width = (6 + Math.random() * 8) + 'px';
+          el.style.height = (6 + Math.random() * 8) + 'px';
+          el.style.background = colors[Math.floor(Math.random() * colors.length)];
+          el.style.borderRadius = '50%';
+        }
+        particles.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      }
     }
 
-    for (let i = 0; i < 40; i++) {
-      const c = document.createElement('div');
-      c.className = 'confetti';
-      c.style.left = Math.random() * 100 + 'vw';
-      c.style.width = (6 + Math.random() * 6) + 'px';
-      c.style.height = (6 + Math.random() * 6) + 'px';
-      c.style.background = [color, '#4a8f4a', '#9b72b0', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 5)];
-      c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-      c.style.animation = `confetti ${2 + Math.random() * 2}s linear ${Math.random() * 1}s forwards`;
-      particles.appendChild(c);
-      setTimeout(() => c.remove(), 5000);
+    doBurst();
+    celebAnimInterval = setInterval(doBurst, 2500);
+  }
+
+  function spawnReveal(cromo: Cromo) {
+    const size = Math.min(window.innerWidth, window.innerHeight) * 0.7;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    const bg = document.createElement('div');
+    bg.className = 'reveal-item';
+    bg.style.left = (cx - size / 2) + 'px';
+    bg.style.top = (cy - size / 2) + 'px';
+    bg.style.width = size + 'px';
+    bg.style.height = size + 'px';
+    bg.style.display = 'flex';
+    bg.style.alignItems = 'center';
+    bg.style.justifyContent = 'center';
+    if (cromo.imageUrl) {
+      bg.innerHTML = `<img src="${cromo.imageUrl}" alt="${cromo.name}" style="max-width:100%;max-height:100%;object-fit:contain;opacity:0.2;filter:drop-shadow(0 0 40px ${cromo.color})" />`;
+    } else {
+      bg.innerHTML = `<span style="font-size:${size * 0.7}px;opacity:0.15;filter:drop-shadow(0 0 40px ${cromo.color})">${cromo.emoji}</span>`;
     }
+    particles.appendChild(bg);
+
+    for (let i = 0; i < 3; i++) {
+      const ring = document.createElement('div');
+      ring.className = 'reveal-shimmer';
+      const ringSize = size * 0.4;
+      ring.style.left = (cx - ringSize / 2) + 'px';
+      ring.style.top = (cy - ringSize / 2) + 'px';
+      ring.style.width = ringSize + 'px';
+      ring.style.height = ringSize + 'px';
+      ring.style.borderColor = cromo.color;
+      ring.style.animationDelay = (i * 0.5) + 's';
+      particles.appendChild(ring);
+    }
+
+    const sparkEmojis = ['✨', '💫', '🌟', '⭐'];
+    celebAnimInterval = setInterval(() => {
+      for (let i = 0; i < 4; i++) {
+        const s = document.createElement('div');
+        s.className = 'burst-particle';
+        const sx = cx + (Math.random() - 0.5) * size;
+        const sy = cy + (Math.random() - 0.5) * size;
+        s.style.left = sx + 'px';
+        s.style.top = sy + 'px';
+        s.textContent = sparkEmojis[Math.floor(Math.random() * sparkEmojis.length)];
+        s.style.fontSize = (0.6 + Math.random() * 0.6) + 'rem';
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 60;
+        s.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+        s.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+        s.style.setProperty('--dur', (1 + Math.random() * 0.5) + 's');
+        particles.appendChild(s);
+        setTimeout(() => s.remove(), 2000);
+      }
+    }, 800);
+  }
+
+  function spawnFireworks(cromo: Cromo) {
+    const colors = [cromo.color, '#ff4444', '#44aaff', '#ffdd44', '#ff88ff', '#44ff88'];
+    const emojis = [cromo.emoji, '✨', '🌟', '💥', '⭐'];
+
+    function fireworkBurst(x: number, y: number) {
+      const burstColor = colors[Math.floor(Math.random() * colors.length)];
+      const count = 14 + Math.floor(Math.random() * 10);
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'fw-spark';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+        const dist = 40 + Math.random() * 120;
+        el.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+        el.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+        el.style.setProperty('--dur', (0.8 + Math.random() * 0.8) + 's');
+        if (Math.random() > 0.5) {
+          el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+          el.style.fontSize = (0.6 + Math.random() * 0.8) + 'rem';
+        } else {
+          el.style.width = (4 + Math.random() * 5) + 'px';
+          el.style.height = (4 + Math.random() * 5) + 'px';
+          el.style.background = burstColor;
+          el.style.borderRadius = '50%';
+          el.style.boxShadow = `0 0 6px ${burstColor}`;
+        }
+        particles.appendChild(el);
+        setTimeout(() => el.remove(), 2500);
+      }
+    }
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    fireworkBurst(vw * 0.3, vh * 0.3);
+    setTimeout(() => fireworkBurst(vw * 0.7, vh * 0.4), 300);
+    setTimeout(() => fireworkBurst(vw * 0.5, vh * 0.25), 600);
+
+    celebAnimInterval = setInterval(() => {
+      fireworkBurst(
+        vw * 0.15 + Math.random() * vw * 0.7,
+        vh * 0.15 + Math.random() * vh * 0.5
+      );
+    }, 1200);
   }
 
   // ============================================================
