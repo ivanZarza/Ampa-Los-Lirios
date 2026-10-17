@@ -11,34 +11,39 @@ const links = [
 
 <header
   id="site-header"
-  class="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-white/0"
+  class="fixed top-0 left-0 right-0 z-50 site-header"
 >
   <div class="max-w-6xl mx-auto px-4">
     <div class="flex items-center justify-between h-16 md:h-20">
-      <a href="/" class="flex items-center gap-2.5 group" transition:name="logo">
-        <span class="text-2xl group-hover:scale-110 transition-transform duration-300">🌿</span>
+      <a href="/" class="flex items-center gap-2 group" transition:name="logo">
+        <img src="/img/logo-ampa.png" alt="Logo AMPA Los Lirios" class="h-10 md:h-12 w-auto group-hover:scale-110 transition-transform duration-300" />
         <span class="font-extrabold text-lg md:text-xl text-verde-700 tracking-tight">AMPA Los Lirios</span>
       </a>
 
       <!-- Desktop nav -->
-      <nav class="hidden md:flex items-center gap-1" aria-label="Navegación principal">
-        {links.map(({ href, label }) => (
-          <a
-            href={href}
-            class:list={[
-              'relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300',
-              currentPath === href || (href !== '/' && currentPath.startsWith(href))
-                ? 'bg-verde-500 text-white shadow-md shadow-verde-200'
-                : 'text-gray-600 hover:text-verde-700 hover:bg-verde-50',
-            ]}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
+      <div class="hidden md:flex items-center gap-3">
+        <nav class="flex items-center gap-1" aria-label="Navegación principal">
+          {links.map(({ href, label }) => (
+            <a
+              href={href}
+              class:list={[
+                'relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300',
+                currentPath === href || (href !== '/' && currentPath.startsWith(href))
+                  ? 'bg-verde-500 text-white shadow-md shadow-verde-200'
+                  : 'text-gray-600 hover:text-verde-700 hover:bg-verde-50',
+              ]}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+        <img src="/img/logo-ceip.jpg" alt="CEIP Andalucía" class="h-10 w-auto rounded-lg opacity-80 hover:opacity-100 transition-opacity duration-300" />
+      </div>
 
-      <!-- Mobile menu button -->
-      <button
+      <!-- Mobile: CEIP logo + menu button -->
+      <div class="md:hidden flex items-center gap-2">
+        <img src="/img/logo-ceip.jpg" alt="CEIP Andalucía" class="h-8 w-auto rounded opacity-70" />
+        <button
         id="menu-toggle"
         class="md:hidden relative w-10 h-10 flex items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-verde-400 transition-colors"
         aria-label="Abrir menú"
@@ -50,6 +55,7 @@ const links = [
           <span class="block w-5 h-0.5 bg-current transition-all duration-300 origin-center" id="bar3"></span>
         </span>
       </button>
+      </div>
     </div>
 
     <!-- Mobile nav -->
@@ -81,6 +87,19 @@ const links = [
 <!-- Spacer to offset fixed header -->
 <div class="h-16 md:h-20"></div>
 
+<style>
+  .site-header {
+    transition: background-color 0.5s, backdrop-filter 0.5s, box-shadow 0.5s;
+    background-color: transparent;
+  }
+  .site-header[data-scrolled] {
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+</style>
+
 <script>
   function initHeader() {
     const header = document.getElementById('site-header');
@@ -94,11 +113,9 @@ const links = [
     function updateHeader() {
       if (!header) return;
       if (window.scrollY > 20) {
-        header.classList.add('bg-white/95', 'backdrop-blur-lg', 'shadow-sm');
-        header.classList.remove('bg-white/0');
+        header.dataset.scrolled = 'true';
       } else {
-        header.classList.remove('bg-white/95', 'backdrop-blur-lg', 'shadow-sm');
-        header.classList.add('bg-white/0');
+        delete header.dataset.scrolled;
       }
     }
 
