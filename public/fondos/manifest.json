@@ -1,0 +1,14 @@
+{
+  "name": "AMPA Los Lirios - Gestión de Fondos",
+  "short_name": "AMPA Fondos",
+  "description": "Gestión de fondos del AMPA Los Lirios",
+  "start_url": "/fondos/",
+  "scope": "/fondos/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#236e3e",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/fondos/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
