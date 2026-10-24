@@ -156,6 +156,7 @@ async function extractTicketData(file){
     const b64=await fileToBase64(small);
     const{data,error}=await sb.functions.invoke('extract-ticket',{body:{image:b64,mediaType:'image/jpeg'}});
     if(error){toast('Error conectando con IA: '+error.message,'error');return null}
+    if(data&&data.error){toast('IA: '+data.error,'error');return null}
     return data;
   }catch(e){toast('Error leyendo ticket: '+e.message,'error');return null}
 }
