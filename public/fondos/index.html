@@ -674,6 +674,16 @@ function route(){
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 load();
+if(!D.perfiles.length){
+  const now=new Date().toISOString();
+  D.perfiles=[
+    {id:uid(),nombre:'Sandra',pin:'1111',rol:'admin',creadoEn:now},
+    {id:uid(),nombre:'Ana',pin:'2222',rol:'admin',creadoEn:now},
+    {id:uid(),nombre:'Jessy',pin:'3333',rol:'admin',creadoEn:now},
+    {id:uid(),nombre:'Ivan',pin:'8888',rol:'admin',creadoEn:now}
+  ];
+  save();
+}
 try{const s=localStorage.getItem('ampa_pa');if(s&&D.perfiles.some(p=>p.id===s))perfActivo=s}catch(e){}
 window.addEventListener('hashchange',route);
 route();
