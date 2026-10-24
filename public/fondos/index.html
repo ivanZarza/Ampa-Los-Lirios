@@ -193,7 +193,8 @@ function toast(msg,type='info'){
   const el=document.createElement('div');
   el.className=`toast ${c} text-white px-4 py-3 rounded-xl shadow-lg text-center text-sm font-medium`;
   el.textContent=msg;root.appendChild(el);
-  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},3000);
+  const dur=type==='error'?8000:3000;
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},dur);
 }
 function modal(html){
   const root=$('#modal-root');
