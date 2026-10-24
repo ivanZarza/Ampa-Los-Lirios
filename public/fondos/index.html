@@ -11,6 +11,7 @@
 <link rel="icon" href="/fondos/favicon.svg" type="image/svg+xml">
 <title>AMPA Fondos</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 tailwind.config={theme:{extend:{colors:{
 verde:{50:'#f0faf4',100:'#d6f0e0',200:'#a8ddb8',300:'#6fc48e',400:'#3da866',500:'#2d8a4e',600:'#236e3e',700:'#1d5832',800:'#184528',900:'#133820'},
@@ -28,6 +29,8 @@ input,select,textarea{font-size:16px!important}
 .pin-dot.filled{transform:scale(1.15)}
 .toast{animation:toastIn .3s ease}
 @keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.loading-spinner{border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;width:20px;height:20px;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
@@ -36,7 +39,12 @@ input,select,textarea{font-size:16px!important}
 <div id="toast-root" class="fixed top-4 left-4 right-4 z-[200] space-y-2"></div>
 
 <script>
-// ─── Types & Constants ───────────────────────────────────────────────────────
+// ─── Supabase ────────────────────────────────────────────────────────────────
+const SB_URL='https://jfeyforrbaxxmsgpvviu.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmZXlmb3JyYmF4eG1zZ3B2dml1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxOTcwMjUsImV4cCI6MjEwNzc3MzAyNX0.dulwOTulQ9dJm7S_nThLF6y_MDnDUe0yX-VKCm-fbNA';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 const FONDOS={
   ampa:{nombre:'Dinero del AMPA',color:'verde',icon:'🏫',bg:'from-verde-600 to-verde-800',header:'bg-verde-700',border:'border-l-verde-500',light:'bg-verde-50'},
   cole:{nombre:'Dinero del Cole',color:'malva',icon:'🎒',bg:'from-malva-600 to-malva-800',header:'bg-malva-700',border:'border-l-malva-500',light:'bg-malva-50'},
@@ -57,20 +65,91 @@ const IC={
   search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
   transfer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>',
   warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  sync:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>'
 };
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let D={perfiles:[],registros:[],categorias:[],auditoria:[]};
 let perfActivo=null;
+let online=true;
 const uid=()=>crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36);
 const $=s=>document.querySelector(s);
 const app=()=>$('#app');
 
-function save(){try{localStorage.setItem('ampa_data',JSON.stringify(D))}catch(e){}}
-function load(){try{const r=localStorage.getItem('ampa_data');if(r)D=JSON.parse(r)}catch(e){}
-D.perfiles=D.perfiles||[];D.registros=D.registros||[];D.categorias=D.categorias||[];D.auditoria=D.auditoria||[];}
+// ─── Data: DB ↔ JS field mapping ─────────────────────────────────────────────
+function regFromDb(r){return{id:r.id,fondo:r.fondo,tipo:r.tipo,cantidad:Number(r.cantidad),descripcion:r.descripcion,
+  nombrePersona:r.nombre_persona||'',categoriaId:r.categoria_id,perfilId:r.perfil_id,
+  tieneTicket:r.tiene_ticket,ticketFoto:r.ticket_foto_url,transferenciaPar:r.transferencia_par,
+  creadoEn:r.creado_en,modificadoEn:r.modificado_en}}
+function regToDb(r){return{id:r.id,fondo:r.fondo,tipo:r.tipo,cantidad:r.cantidad,descripcion:r.descripcion,
+  nombre_persona:r.nombrePersona||'',categoria_id:r.categoriaId||null,perfil_id:r.perfilId,
+  tiene_ticket:r.tieneTicket,ticket_foto_url:r.ticketFoto||null,transferencia_par:r.transferenciaPar||null,
+  creado_en:r.creadoEn,modificado_en:r.modificadoEn}}
+function audFromDb(a){return{id:a.id,registroId:a.registro_id,perfilNombre:a.perfil_nombre,accion:a.accion,
+  descripcion:a.descripcion,datosAnteriores:a.datos_anteriores,datosNuevos:a.datos_nuevos,creadoEn:a.creado_en}}
+function audToDb(a){return{id:a.id,registro_id:a.registroId,perfil_nombre:a.perfilNombre,accion:a.accion,
+  descripcion:a.descripcion,datos_anteriores:a.datosAnteriores||null,datos_nuevos:a.datosNuevos||null,creado_en:a.creadoEn}}
+function perFromDb(p){return{id:p.id,nombre:p.nombre,pin:p.pin,rol:p.rol,creadoEn:p.creado_en}}
+function perToDb(p){return{id:p.id,nombre:p.nombre,pin:p.pin,rol:p.rol,creado_en:p.creadoEn}}
+function catFromDb(c){return{id:c.id,nombre:c.nombre,activa:c.activa}}
 
+// ─── Data: Load & Save ───────────────────────────────────────────────────────
+function cacheLocal(){try{localStorage.setItem('ampa_data',JSON.stringify(D))}catch(e){}}
+function loadLocal(){try{const r=localStorage.getItem('ampa_data');if(r){const d=JSON.parse(r);D.perfiles=d.perfiles||[];D.registros=d.registros||[];D.categorias=d.categorias||[];D.auditoria=d.auditoria||[];return true}}catch(e){}return false}
+
+async function syncFromDb(){
+  try{
+    const [p,r,c,a]=await Promise.all([
+      sb.from('fondos_perfiles').select('*'),
+      sb.from('fondos_registros').select('*'),
+      sb.from('fondos_categorias').select('*'),
+      sb.from('fondos_auditoria').select('*').order('creado_en',{ascending:false}).limit(200)
+    ]);
+    if(p.error||r.error||c.error||a.error)throw new Error('DB error');
+    D.perfiles=p.data.map(perFromDb);
+    D.registros=r.data.map(regFromDb);
+    D.categorias=c.data.map(catFromDb);
+    D.auditoria=a.data.map(audFromDb);
+    online=true;cacheLocal();return true;
+  }catch(e){online=false;return false}
+}
+
+async function dbInsertReg(reg){const{error}=await sb.from('fondos_registros').insert(regToDb(reg));if(error)toast('Error al sincronizar','error')}
+async function dbUpdateReg(reg){const{error}=await sb.from('fondos_registros').update(regToDb(reg)).eq('id',reg.id);if(error)toast('Error al sincronizar','error')}
+async function dbDeleteReg(id){const{error}=await sb.from('fondos_registros').delete().eq('id',id);if(error)toast('Error al sincronizar','error')}
+
+async function dbInsertPer(p){const{error}=await sb.from('fondos_perfiles').insert(perToDb(p));if(error)toast('Error al sincronizar','error')}
+async function dbUpdatePer(p){const{error}=await sb.from('fondos_perfiles').update(perToDb(p)).eq('id',p.id);if(error)toast('Error al sincronizar','error')}
+async function dbDeletePer(id){const{error}=await sb.from('fondos_perfiles').delete().eq('id',id);if(error)toast('Error al sincronizar','error')}
+
+async function dbInsertCat(c){const{error}=await sb.from('fondos_categorias').insert(c);if(error)toast('Error al sincronizar','error')}
+async function dbUpdateCat(c){const{error}=await sb.from('fondos_categorias').update(c).eq('id',c.id);if(error)toast('Error al sincronizar','error')}
+async function dbDeleteCat(id){const{error}=await sb.from('fondos_categorias').delete().eq('id',id);if(error)toast('Error al sincronizar','error')}
+
+async function dbInsertAud(a){await sb.from('fondos_auditoria').insert(audToDb(a)).catch(()=>{})}
+
+async function uploadTicket(file){
+  const ext=file.name.split('.').pop()||'jpg';
+  const path=`tickets/${uid()}.${ext}`;
+  const{error}=await sb.storage.from('fondos-tickets').upload(path,file,{contentType:file.type});
+  if(error){toast('Error subiendo foto','error');return null}
+  const{data}=sb.storage.from('fondos-tickets').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ─── Realtime ────────────────────────────────────────────────────────────────
+function setupRealtime(){
+  sb.channel('fondos-sync')
+    .on('postgres_changes',{event:'*',schema:'public',table:'fondos_registros'},()=>refreshData())
+    .on('postgres_changes',{event:'*',schema:'public',table:'fondos_perfiles'},()=>refreshData())
+    .on('postgres_changes',{event:'*',schema:'public',table:'fondos_categorias'},()=>refreshData())
+    .on('postgres_changes',{event:'*',schema:'public',table:'fondos_auditoria'},()=>refreshData())
+    .subscribe();
+}
+async function refreshData(){await syncFromDb();route()}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function perfil(){return D.perfiles.find(p=>p.id===perfActivo)||null}
 function saldo(f){return D.registros.filter(r=>r.fondo===f).reduce((s,r)=>s+(r.tipo==='entrada'?r.cantidad:-r.cantidad),0)}
 function pendientes(){return D.registros.filter(r=>r.tipo==='salida'&&!r.tieneTicket)}
@@ -80,8 +159,8 @@ function fmtT(iso){return new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digi
 function fmtDT(iso){return fmtD(iso)+' '+fmtT(iso)}
 
 function audit(accion,regId,desc,antes=null,despues=null){
-  D.auditoria.push({id:uid(),registroId:regId,perfilNombre:perfil()?.nombre||'Sistema',accion,descripcion:desc,datosAnteriores:antes,datosNuevos:despues,creadoEn:new Date().toISOString()});
-  save();
+  const a={id:uid(),registroId:regId,perfilNombre:perfil()?.nombre||'Sistema',accion,descripcion:desc,datosAnteriores:antes,datosNuevos:despues,creadoEn:new Date().toISOString()};
+  D.auditoria.unshift(a);cacheLocal();dbInsertAud(a);
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
@@ -93,7 +172,6 @@ function toast(msg,type='info'){
   el.textContent=msg;root.appendChild(el);
   setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},3000);
 }
-
 function modal(html){
   const root=$('#modal-root');
   root.innerHTML=`<div class="fixed inset-0 z-[100] bg-black/50 flex items-end sm:items-center justify-center" id="mbg">
@@ -101,7 +179,6 @@ function modal(html){
   $('#mbg').onclick=e=>{if(e.target.id==='mbg')closeM()};
 }
 function closeM(){$('#modal-root').innerHTML=''}
-
 function confirmDlg(title,msg,btnTxt,onOk,danger=false){
   modal(`<h3 class="text-lg font-bold mb-2">${title}</h3><p class="text-gray-600 mb-6">${msg}</p>
     <div class="flex gap-3"><button class="flex-1 rounded-lg font-semibold py-3 bg-gray-200 text-gray-800 active:scale-95 transition-transform" id="mc">Cancelar</button>
@@ -117,13 +194,14 @@ function nav(act){
       <span class="w-6 h-6 mb-0.5">${x.i}</span><span>${x.l}</span></a>`).join('')}</nav>`;
 }
 function hdr(title,back,right=''){
+  const syncIcon=online?'':'<span class="w-4 h-4 text-amber-300 ml-2" title="Sin conexión">⚡</span>';
   return `<header class="app-header sticky top-0 z-50 bg-verde-600 text-white px-4 py-3 shadow-md">
     <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">${back?`<a href="#${back}" class="p-1 -ml-1 w-6 h-6">${IC.back}</a>`:''}<h1 class="text-lg font-bold truncate">${title}</h1></div>
+      <div class="flex items-center gap-2">${back?`<a href="#${back}" class="p-1 -ml-1 w-6 h-6">${IC.back}</a>`:''}<h1 class="text-lg font-bold truncate">${title}</h1>${syncIcon}</div>
       ${right?`<div class="flex items-center gap-2">${right}</div>`:''}</div></header>`;
 }
 
-// ─── Records List Component ──────────────────────────────────────────────────
+// ─── Records List ────────────────────────────────────────────────────────────
 function regList(regs,showFondo=false){
   if(!regs.length)return '<p class="text-center text-gray-400 py-8">No hay movimientos</p>';
   return `<div class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">${regs.map(r=>{
@@ -140,7 +218,8 @@ function regList(regs,showFondo=false){
 
 // ─── VIEW: Login ─────────────────────────────────────────────────────────────
 function vLogin(){
-  if(!D.perfiles.length){vSetup();return}
+  if(!D.perfiles.length){app().innerHTML=`<div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-verde-700 to-verde-900 px-6">
+    <div class="loading-spinner"></div><p class="text-verde-200 mt-4">Cargando...</p></div>`;return}
   let pin='';
   function render(){
     app().innerHTML=`<div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-verde-700 to-verde-900 px-6">
@@ -166,31 +245,6 @@ function vLogin(){
     else{$('#pin-err').textContent='PIN incorrecto';pin='';setTimeout(upDots,200)}
   }
   render();
-}
-
-// ─── VIEW: Setup ─────────────────────────────────────────────────────────────
-function vSetup(){
-  app().innerHTML=`<div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-verde-700 to-verde-900 px-6">
-    <div class="text-center mb-8"><div class="text-5xl mb-3">🏫</div><h1 class="text-2xl font-bold text-white">AMPA Los Lirios</h1>
-      <p class="text-verde-200 mt-1">Configuración inicial</p></div>
-    <div class="bg-white rounded-xl shadow-sm p-6 w-full max-w-sm">
-      <h2 class="font-bold text-lg mb-4">Crear primer perfil</h2>
-      <div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-        <input type="text" id="sn" class="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-verde-400" placeholder="Ej: Tesorero"></div>
-      <div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">PIN (4 dígitos)</label>
-        <input type="password" id="sp" class="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-verde-400" maxlength="4" inputmode="numeric" placeholder="••••"></div>
-      <div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Confirmar PIN</label>
-        <input type="password" id="sp2" class="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-verde-400" maxlength="4" inputmode="numeric" placeholder="••••"></div>
-      <div id="serr" class="text-red-500 text-sm mb-3 h-5"></div>
-      <button class="w-full rounded-lg font-semibold py-3 bg-verde-600 text-white active:scale-95 transition-transform" id="ssub">Crear perfil</button></div></div>`;
-  $('#ssub').onclick=()=>{
-    const n=$('#sn').value.trim(),p=$('#sp').value,p2=$('#sp2').value,err=$('#serr');
-    if(!n){err.textContent='Introduce un nombre';return}
-    if(!/^\d{4}$/.test(p)){err.textContent='El PIN debe ser de 4 dígitos';return}
-    if(p!==p2){err.textContent='Los PINs no coinciden';return}
-    D.perfiles.push({id:uid(),nombre:n,pin:p,rol:'admin',creadoEn:new Date().toISOString()});save();
-    toast('Perfil creado','success');vLogin();
-  };
 }
 
 // ─── VIEW: Dashboard ─────────────────────────────────────────────────────────
@@ -272,14 +326,14 @@ function vNuevo(fid,tipo){
         <button type="submit" class="w-full rounded-lg font-semibold py-4 text-lg ${isE?'bg-verde-600':'bg-red-500'} text-white active:scale-95 transition-transform">Confirmar ${tipo}</button>
       </form></main>`;
 
-  let ticketData=null;
+  let ticketFile=null;
   if(!isE){
     const fcam=$('#ftcam'),fgal=$('#ftgal');
     $('#bfoto').onclick=()=>fcam.click();$('#bgal').onclick=()=>fgal.click();
-    function hFile(e){const file=e.target.files?.[0];if(!file)return;const r=new FileReader();
-      r.onload=()=>{ticketData=r.result;$('#timg').src=ticketData;$('#tprev').classList.remove('hidden')};r.readAsDataURL(file)}
+    function hFile(e){const file=e.target.files?.[0];if(!file)return;ticketFile=file;
+      const r=new FileReader();r.onload=()=>{$('#timg').src=r.result;$('#tprev').classList.remove('hidden')};r.readAsDataURL(file)}
     fcam.onchange=hFile;fgal.onchange=hFile;
-    $('#brt').onclick=()=>{ticketData=null;$('#tprev').classList.add('hidden')};
+    $('#brt').onclick=()=>{ticketFile=null;$('#tprev').classList.add('hidden')};
   }
 
   $('#frm').onsubmit=e=>{
@@ -288,7 +342,7 @@ function vNuevo(fid,tipo){
       catId=$('#rcat').value||null,catNm=catId?D.categorias.find(c=>c.id===catId)?.nombre:null;
     if(!cant||cant<=0){toast('Cantidad inválida','error');return}
     if(!desc){toast('Descripción obligatoria','error');return}
-    const sAnt=saldo(fid),sNuevo=isE?sAnt+cant:sAnt-cant,tieneTk=isE?true:!!ticketData;
+    const sAnt=saldo(fid),sNuevo=isE?sAnt+cant:sAnt-cant,tieneTk=isE?true:!!ticketFile;
 
     modal(`<div class="text-center mb-4"><div class="text-4xl mb-2">${isE?'✅':'📤'}</div>
         <h3 class="text-xl font-bold">${isE?'Confirmar entrada':'Confirmar salida'}</h3></div>
@@ -309,13 +363,17 @@ function vNuevo(fid,tipo){
         <button class="flex-1 rounded-lg font-semibold py-3 bg-gray-200 text-gray-800 active:scale-95 transition-transform" id="mc">Cancelar</button>
         <button class="flex-1 rounded-lg font-semibold py-3 ${isE?'bg-verde-600':'bg-red-500'} text-white active:scale-95 transition-transform" id="mok">Guardar</button></div>`);
     $('#mc').onclick=closeM;
-    $('#mok').onclick=()=>{
+    $('#mok').onclick=async()=>{
+      $('#mok').disabled=true;$('#mok').innerHTML='<span class="loading-spinner"></span>';
+      let fotoUrl=null;
+      if(ticketFile)fotoUrl=await uploadTicket(ticketFile);
       const reg={id:uid(),fondo:fid,tipo,cantidad:cant,descripcion:desc,nombrePersona:nom,categoriaId:catId,
-        perfilId:perfActivo,tieneTicket:tieneTk,ticketFoto:ticketData,transferenciaPar:null,
+        perfilId:perfActivo,tieneTicket:tieneTk,ticketFoto:fotoUrl,transferenciaPar:null,
         creadoEn:new Date().toISOString(),modificadoEn:new Date().toISOString()};
-      D.registros.push(reg);
+      D.registros.push(reg);cacheLocal();
       audit('crear',reg.id,`${tipo} de ${fmt(cant)} en ${f.nombre}: ${desc}`);
-      save();closeM();toast(`${isE?'Entrada':'Salida'} registrada: ${fmt(cant)}`,'success');go(`/fondo/${fid}`);
+      dbInsertReg(reg);
+      closeM();toast(`${isE?'Entrada':'Salida'} registrada: ${fmt(cant)}`,'success');go(`/fondo/${fid}`);
     };
   };
 }
@@ -355,17 +413,23 @@ function vReg(id){
     $('#bdel')?.addEventListener('click',()=>{
       confirmDlg('Borrar registro',`Vas a borrar: ${isE?'Entrada':'Salida'} ${fmt(r.cantidad)} - ${r.descripcion}. Esta acción queda registrada.`,'Borrar',()=>{
         const ant={...r};D.registros=D.registros.filter(x=>x.id!==r.id);
-        if(r.transferenciaPar)D.registros=D.registros.filter(x=>x.id!==r.transferenciaPar);
-        audit('borrar',r.id,`Borrado: ${r.tipo} ${fmt(r.cantidad)} - ${r.descripcion}`,ant);save();
+        dbDeleteReg(r.id);
+        if(r.transferenciaPar){D.registros=D.registros.filter(x=>x.id!==r.transferenciaPar);dbDeleteReg(r.transferenciaPar)}
+        audit('borrar',r.id,`Borrado: ${r.tipo} ${fmt(r.cantidad)} - ${r.descripcion}`,ant);cacheLocal();
         toast('Registro borrado','info');go('/fondo/'+r.fondo);
       },true);
     });
     const atkBtn=$('#batk'),atkFile=$('#fatk');
     if(atkBtn&&atkFile){
       atkBtn.onclick=()=>atkFile.click();
-      atkFile.onchange=e=>{const file=e.target.files?.[0];if(!file)return;const rd=new FileReader();
-        rd.onload=()=>{const ant={tieneTicket:r.tieneTicket};r.ticketFoto=rd.result;r.tieneTicket=true;r.modificadoEn=new Date().toISOString();
-          audit('modificar',r.id,'Ticket añadido: '+r.descripcion,ant,{tieneTicket:true});save();toast('Ticket añadido','success');vReg(id)};rd.readAsDataURL(file)};
+      atkFile.onchange=async e=>{const file=e.target.files?.[0];if(!file)return;
+        atkBtn.disabled=true;atkBtn.innerHTML='<span class="loading-spinner"></span> Subiendo...';
+        const url=await uploadTicket(file);
+        if(url){const ant={tieneTicket:r.tieneTicket};r.ticketFoto=url;r.tieneTicket=true;r.modificadoEn=new Date().toISOString();
+          audit('modificar',r.id,'Ticket añadido: '+r.descripcion,ant,{tieneTicket:true});cacheLocal();dbUpdateReg(r);
+          toast('Ticket añadido','success');vReg(id)}
+        else{atkBtn.disabled=false;atkBtn.innerHTML=`<span class="w-4 h-4 mr-1 inline-block">${IC.cam}</span>Añadir ticket`}
+      };
     }
   }
 }
@@ -396,7 +460,8 @@ function vEditar(id){
     r.fondo=$('#ef').value;r.tipo=$('#et').value;r.cantidad=parseFloat($('#ec').value);
     r.descripcion=$('#ed').value.trim();r.nombrePersona=$('#en').value.trim();r.categoriaId=$('#ecat').value||null;
     r.modificadoEn=new Date().toISOString();
-    audit('modificar',r.id,'Modificado: '+r.descripcion,ant,{...r});save();toast('Actualizado','success');go('/registro/'+id)};
+    audit('modificar',r.id,'Modificado: '+r.descripcion,ant,{...r});cacheLocal();dbUpdateReg(r);
+    toast('Actualizado','success');go('/registro/'+id)};
 }
 
 // ─── VIEW: Records ───────────────────────────────────────────────────────────
@@ -459,7 +524,8 @@ function vCats(){
       $('#mc').onclick=closeM;$('#mok').onclick=()=>{const n=$('#cn').value.trim();
         if(!n){toast('Nombre requerido','error');return}
         if(D.categorias.some(c=>c.nombre.toLowerCase()===n.toLowerCase())){toast('Ya existe','error');return}
-        D.categorias.push({id:uid(),nombre:n,activa:true});save();closeM();toast('Creada','success');render()};
+        const c={id:uid(),nombre:n,activa:true};D.categorias.push(c);cacheLocal();dbInsertCat(c);
+        closeM();toast('Creada','success');render()};
     };
     document.querySelectorAll('[data-ce]').forEach(b=>b.onclick=()=>{const c=D.categorias.find(x=>x.id===b.dataset.ce);
       modal(`<h3 class="text-lg font-bold mb-4">Editar categoría</h3>
@@ -467,10 +533,12 @@ function vCats(){
         <div class="mb-4"><label class="flex items-center gap-2"><input type="checkbox" id="ca" ${c.activa?'checked':''} class="w-5 h-5 accent-verde-600"><span>Activa</span></label></div>
         <div class="flex gap-3"><button class="flex-1 rounded-lg font-semibold py-3 bg-gray-200 text-gray-800 active:scale-95 transition-transform" id="mc">Cancelar</button>
           <button class="flex-1 rounded-lg font-semibold py-3 bg-verde-600 text-white active:scale-95 transition-transform" id="mok">Guardar</button></div>`);
-      $('#mc').onclick=closeM;$('#mok').onclick=()=>{c.nombre=$('#cn').value.trim();c.activa=$('#ca').checked;save();closeM();toast('Actualizada','success');render()};
+      $('#mc').onclick=closeM;$('#mok').onclick=()=>{c.nombre=$('#cn').value.trim();c.activa=$('#ca').checked;cacheLocal();
+        dbUpdateCat({id:c.id,nombre:c.nombre,activa:c.activa});closeM();toast('Actualizada','success');render()};
     });
     document.querySelectorAll('[data-cd]').forEach(b=>b.onclick=()=>{const c=D.categorias.find(x=>x.id===b.dataset.cd);
-      confirmDlg('Borrar','¿Eliminar "'+c.nombre+'"?','Borrar',()=>{D.categorias=D.categorias.filter(x=>x.id!==c.id);save();toast('Eliminada','info');render()},true)});
+      confirmDlg('Borrar','¿Eliminar "'+c.nombre+'"?','Borrar',()=>{D.categorias=D.categorias.filter(x=>x.id!==c.id);cacheLocal();
+        dbDeleteCat(c.id);toast('Eliminada','info');render()},true)});
   }
   render();
 }
@@ -509,12 +577,14 @@ function vTransfer(){
         <button class="flex-1 rounded-lg font-semibold py-3 bg-verde-600 text-white active:scale-95 transition-transform" id="mok">Transferir</button></div>`);
     $('#mc').onclick=closeM;$('#mok').onclick=()=>{
       const now=new Date().toISOString(),i1=uid(),i2=uid();
-      D.registros.push({id:i1,fondo:o,tipo:'salida',cantidad:c,descripcion:ds+' → '+FONDOS[d].nombre,nombrePersona:'',categoriaId:null,
-        perfilId:perfActivo,tieneTicket:true,ticketFoto:null,transferenciaPar:i2,creadoEn:now,modificadoEn:now});
-      D.registros.push({id:i2,fondo:d,tipo:'entrada',cantidad:c,descripcion:ds+' ← '+FONDOS[o].nombre,nombrePersona:'',categoriaId:null,
-        perfilId:perfActivo,tieneTicket:true,ticketFoto:null,transferenciaPar:i1,creadoEn:now,modificadoEn:now});
-      audit('crear',i1,`Transferencia: ${fmt(c)} de ${FONDOS[o].nombre} a ${FONDOS[d].nombre}`);save();closeM();
-      toast('Transferencia completada','success');go('/dashboard')};
+      const r1={id:i1,fondo:o,tipo:'salida',cantidad:c,descripcion:ds+' → '+FONDOS[d].nombre,nombrePersona:'',categoriaId:null,
+        perfilId:perfActivo,tieneTicket:true,ticketFoto:null,transferenciaPar:i2,creadoEn:now,modificadoEn:now};
+      const r2={id:i2,fondo:d,tipo:'entrada',cantidad:c,descripcion:ds+' ← '+FONDOS[o].nombre,nombrePersona:'',categoriaId:null,
+        perfilId:perfActivo,tieneTicket:true,ticketFoto:null,transferenciaPar:i1,creadoEn:now,modificadoEn:now};
+      D.registros.push(r1,r2);cacheLocal();
+      dbInsertReg(r1);dbInsertReg(r2);
+      audit('crear',i1,`Transferencia: ${fmt(c)} de ${FONDOS[o].nombre} a ${FONDOS[d].nombre}`);
+      closeM();toast('Transferencia completada','success');go('/dashboard')};
   };
 }
 
@@ -526,6 +596,9 @@ function vAjustes(){
       <div class="bg-white rounded-xl shadow-sm border p-4"><h2 class="font-bold mb-1">Perfil activo</h2>
         <p class="text-lg text-verde-600 font-semibold">${p?.nombre||''}</p>
         <p class="text-sm text-gray-500">${p?.rol==='lectura'?'Solo lectura':'Administrador'}</p></div>
+      <div class="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full ${online?'bg-verde-500':'bg-amber-500'}"></div>
+        <span class="text-sm ${online?'text-verde-700':'text-amber-700'}">${online?'Conectado — datos sincronizados':'Sin conexión — datos locales'}</span></div>
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Perfiles</h2>
       <div class="space-y-2">${D.perfiles.map(x=>`
         <div class="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
@@ -538,12 +611,7 @@ function vAjustes(){
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide pt-4">Datos</h2>
       <div class="space-y-2">
         <a href="#/exportar" class="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-3 block hover:shadow-md transition-shadow">
-          <div class="w-8 h-8 text-verde-600">${IC.dl}</div><div><p class="font-medium">Exportar a Excel</p><p class="text-xs text-gray-400">CSV compatible con Excel</p></div></a>
-        <button class="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-3 w-full text-left hover:shadow-md transition-shadow" id="bbk">
-          <div class="w-8 h-8 text-verde-600">${IC.dl}</div><div><p class="font-medium">Copia de seguridad</p><p class="text-xs text-gray-400">Descargar JSON</p></div></button>
-        <button class="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-3 w-full text-left hover:shadow-md transition-shadow" id="brs">
-          <div class="w-8 h-8 text-malva-600">${IC.ul}</div><div><p class="font-medium">Restaurar datos</p><p class="text-xs text-gray-400">Cargar copia de seguridad</p></div></button>
-        <input type="file" id="frs" accept=".json" class="hidden"></div>
+          <div class="w-8 h-8 text-verde-600">${IC.dl}</div><div><p class="font-medium">Exportar a Excel</p><p class="text-xs text-gray-400">CSV compatible con Excel</p></div></a></div>
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide pt-4">Auditoría</h2>
       <a href="#/auditoria" class="bg-white rounded-xl shadow-sm border p-4 flex items-center gap-3 block hover:shadow-md transition-shadow">
         <div class="w-8 h-8 text-gray-600">${IC.clock}</div><div><p class="font-medium">Registro de cambios</p><p class="text-xs text-gray-400">${D.auditoria.length} entradas</p></div></a>
@@ -567,7 +635,8 @@ function vAjustes(){
       const n=$('#pn').value.trim(),pin=$('#pp').value,rol=$('#pr').value;
       if(!n){toast('Nombre requerido','error');return}if(!/^\d{4}$/.test(pin)){toast('PIN: 4 dígitos','error');return}
       if(D.perfiles.some(x=>x.pin===pin)){toast('PIN en uso','error');return}
-      D.perfiles.push({id:uid(),nombre:n,pin,rol,creadoEn:new Date().toISOString()});save();closeM();toast('Perfil creado','success');vAjustes()};
+      const np={id:uid(),nombre:n,pin,rol,creadoEn:new Date().toISOString()};
+      D.perfiles.push(np);cacheLocal();dbInsertPer(np);closeM();toast('Perfil creado','success');vAjustes()};
   };
 
   document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>{const x=D.perfiles.find(p=>p.id===b.dataset.pe);
@@ -585,23 +654,13 @@ function vAjustes(){
     $('#mc').onclick=closeM;$('#mok').onclick=()=>{x.nombre=$('#pn').value.trim();const np=$('#pp').value;
       if(np){if(!/^\d{4}$/.test(np)){toast('PIN: 4 dígitos','error');return}
         if(D.perfiles.some(p=>p.pin===np&&p.id!==x.id)){toast('PIN en uso','error');return}x.pin=np}
-      x.rol=$('#pr').value;save();closeM();toast('Actualizado','success');vAjustes()};
+      x.rol=$('#pr').value;cacheLocal();dbUpdatePer(x);closeM();toast('Actualizado','success');vAjustes()};
   });
 
   document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{const x=D.perfiles.find(p=>p.id===b.dataset.pd);
     confirmDlg('Borrar perfil','¿Eliminar "'+x.nombre+'"? Los registros se mantienen.','Borrar',()=>{
       D.perfiles=D.perfiles.filter(p=>p.id!==x.id);if(perfActivo===x.id&&D.perfiles.length)perfActivo=D.perfiles[0].id;
-      save();toast('Eliminado','info');vAjustes()},true)});
-
-  $('#bbk').onclick=()=>{const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);
-    const a=document.createElement('a');a.href=u;a.download='ampa-fondos-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u);toast('Descargado','success')};
-
-  const frs=$('#frs');$('#brs').onclick=()=>frs.click();
-  frs.onchange=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();
-    r.onload=()=>{try{const imp=JSON.parse(r.result);if(!imp.perfiles||!imp.registros)throw 0;
-      confirmDlg('Restaurar','Esto reemplaza TODOS los datos. ¿Continuar?','Restaurar',()=>{
-        D=imp;D.auditoria=D.auditoria||[];D.categorias=D.categorias||[];save();toast('Restaurado','success');go('/dashboard')},true)}
-      catch(e){toast('Archivo inválido','error')}};r.readAsText(f)};
+      cacheLocal();dbDeletePer(x.id);toast('Eliminado','info');vAjustes()},true)});
 }
 
 // ─── VIEW: Export ────────────────────────────────────────────────────────────
@@ -676,20 +735,18 @@ function route(){
 // ─── Init ────────────────────────────────────────────────────────────────────
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/fondos/sw.js').catch(()=>{})}
 
-load();
-if(!D.perfiles.length){
-  const now=new Date().toISOString();
-  D.perfiles=[
-    {id:uid(),nombre:'Sandra',pin:'1111',rol:'admin',creadoEn:now},
-    {id:uid(),nombre:'Ana',pin:'2222',rol:'admin',creadoEn:now},
-    {id:uid(),nombre:'Jessy',pin:'3333',rol:'admin',creadoEn:now},
-    {id:uid(),nombre:'Ivan',pin:'8888',rol:'admin',creadoEn:now}
-  ];
-  save();
-}
+loadLocal();
 try{const s=localStorage.getItem('ampa_pa');if(s&&D.perfiles.some(p=>p.id===s))perfActivo=s}catch(e){}
 window.addEventListener('hashchange',route);
 route();
+
+syncFromDb().then(ok=>{
+  if(ok){
+    try{const s=localStorage.getItem('ampa_pa');if(s&&D.perfiles.some(p=>p.id===s))perfActivo=s}catch(e){}
+    route();
+    setupRealtime();
+  }
+});
 </script>
 </body>
 </html>
