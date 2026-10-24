@@ -1,0 +1,117 @@
+---
+interface Props {
+  type?: 'website' | 'event';
+  event?: {
+    name: string;
+    description?: string;
+    startDate: string;
+    endDate?: string;
+    location?: string;
+    image?: string;
+  };
+}
+
+const { type = 'website', event } = Astro.props;
+const siteUrl = Astro.site?.toString().replace(/\/$/, '') || 'https://ampaloslirios.es';
+
+const organizationLD = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'AMPA Los Lirios',
+  alternateName: 'Asociación de Madres y Padres de Alumnos Los Lirios',
+  url: siteUrl,
+  logo: `${siteUrl}/img/logo-ampa.png`,
+  email: 'ampaloslirios@gmail.com',
+  description: 'Asociación de Madres y Padres de Alumnos del CEIP Andalucía en Camas, Sevilla.',
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: 'Camas',
+    addressRegion: 'Sevilla',
+    addressCountry: 'ES',
+  },
+  parentOrganization: {
+    '@type': 'School',
+    name: 'CEIP Andalucía',
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Camas',
+      addressRegion: 'Sevilla',
+      addressCountry: 'ES',
+    },
+  },
+};
+
+const websiteLD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'AMPA Los Lirios',
+  url: siteUrl,
+  inLanguage: 'es',
+  publisher: {
+    '@type': 'Organization',
+    name: 'AMPA Los Lirios',
+    logo: {
+      '@type': 'ImageObject',
+      url: `${siteUrl}/img/logo-ampa.png`,
+    },
+  },
+};
+
+const breadcrumbLD = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Inicio',
+      item: siteUrl,
+    },
+    ...(Astro.url.pathname !== '/' ? [{
+      '@type': 'ListItem',
+      position: 2,
+      name: Astro.url.pathname.replace(/^\//, '').replace(/-/g, ' ').replace(/^\w/, (c: string) => c.toUpperCase()),
+      item: `${siteUrl}${Astro.url.pathname}`,
+    }] : []),
+  ],
+};
+
+let eventLD = null;
+if (type === 'event' && event) {
+  eventLD = {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: event.name,
+    description: event.description || '',
+    startDate: event.startDate,
+    ...(event.endDate && { endDate: event.endDate }),
+    organizer: {
+      '@type': 'Organization',
+      name: 'AMPA Los Lirios',
+      url: siteUrl,
+    },
+    location: {
+      '@type': 'Place',
+      name: event.location || 'CEIP Andalucía',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Camas',
+        addressRegion: 'Sevilla',
+        addressCountry: 'ES',
+      },
+    },
+    ...(event.image && {
+      image: event.image,
+    }),
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+  };
+}
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(organizationLD)} />
+<script type="application/ld+json" set:html={JSON.stringify(websiteLD)} />
+<script type="application/ld+json" set:html={JSON.stringify(breadcrumbLD)} />
+{eventLD && (
+  <script type="application/ld+json" set:html={JSON.stringify(eventLD)} />
+)}

@@ -3,15 +3,20 @@ import { ViewTransitions } from 'astro:transitions';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import EasterEggs from '../components/EasterEggs.astro';
+import SEO from '../components/SEO.astro';
 import '../styles/global.css';
 
 interface Props {
   title: string;
   description?: string;
+  ogImage?: string;
 }
 
-const { title, description = 'AMPA Los Lirios — Asociación de Madres y Padres de Alumnos' } = Astro.props;
+const { title, description = 'AMPA Los Lirios — Asociación de Madres y Padres de Alumnos del CEIP Andalucía en Camas, Sevilla. Fiestas, actividades y colaboradores.', ogImage } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const siteUrl = Astro.site?.toString().replace(/\/$/, '') || 'https://ampaloslirios.es';
+const ogImageURL = ogImage ? new URL(ogImage, siteUrl).toString() : `${siteUrl}/img/og-default.png`;
+const fullTitle = `${title} | AMPA Los Lirios`;
 ---
 
 <!doctype html>
@@ -22,11 +27,30 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalURL.toString()} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/img/logo-ampa.png" />
+    <meta name="theme-color" content="#4a8f4a" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL.toString()} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:site_name" content="AMPA Los Lirios" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <title>{title} | AMPA Los Lirios</title>
+    <title>{fullTitle}</title>
     <ViewTransitions />
+    <SEO />
   </head>
   <body class="min-h-screen flex flex-col">
     <Header />

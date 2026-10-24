@@ -21,7 +21,7 @@ const { data: pasados } = await supabase
   .limit(20);
 ---
 
-<Base title="Fiestas y eventos" description="Calendario de fiestas y eventos del AMPA Los Lirios.">
+<Base title="Fiestas y eventos" description="Calendario de fiestas y eventos del AMPA Los Lirios en el CEIP Andalucía, Camas. Excursiones, fiestas escolares y actividades para familias.">
   <!-- Page header -->
   <section class="bg-gradient-to-br from-verde-50 to-malva-50 py-12 md:py-16">
     <div class="max-w-4xl mx-auto px-4 text-center">
@@ -67,4 +67,24 @@ const { data: pasados } = await supabase
       </div>
     )}
   </section>
+
+  {/* JSON-LD para eventos próximos */}
+  {proximos && proximos.length > 0 && proximos.map((e) => (
+    <script type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Event',
+      name: e.titulo,
+      description: e.descripcion || `Evento organizado por AMPA Los Lirios en el CEIP Andalucía, Camas`,
+      startDate: e.fecha_inicio,
+      ...(e.fecha_fin && { endDate: e.fecha_fin }),
+      organizer: { '@type': 'Organization', name: 'AMPA Los Lirios', url: 'https://ampaloslirios.es' },
+      location: {
+        '@type': 'Place',
+        name: e.lugar || 'CEIP Andalucía',
+        address: { '@type': 'PostalAddress', addressLocality: 'Camas', addressRegion: 'Sevilla', addressCountry: 'ES' },
+      },
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      eventStatus: 'https://schema.org/EventScheduled',
+    })} />
+  ))}
 </Base>
