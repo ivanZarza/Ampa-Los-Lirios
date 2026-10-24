@@ -138,16 +138,26 @@ async function uploadTicket(file){
   return data.publicUrl;
 }
 
+function fileToBase64(file){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{
+    const du=r.result;const i=du.indexOf(',')+1;res(du.slice(i))};r.onerror=rej;r.readAsDataURL(file)})
+}
+function resizeImage(file,maxW=1200){
+  return new Promise(res=>{const img=new Image();img.onload=()=>{
+    let w=img.width,h=img.height;if(w>maxW){h=Math.round(h*maxW/w);w=maxW}
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    c.toBlob(b=>res(b||file),'image/jpeg',0.8)};
+    img.src=URL.createObjectURL(file)})
+}
 async function extractTicketData(file){
   try{
-    const buf=await file.arrayBuffer();
-    const bytes=new Uint8Array(buf);let b='';
-    for(let i=0;i<bytes.length;i+=32768){b+=String.fromCharCode(...bytes.subarray(i,i+32768))}
-    const b64=btoa(b);
-    const{data,error}=await sb.functions.invoke('extract-ticket',{body:{image:b64,mediaType:file.type}});
-    if(error)throw error;
+    const small=await resizeImage(file);
+    const b64=await fileToBase64(small);
+    const{data,error}=await sb.functions.invoke('extract-ticket',{body:{image:b64,mediaType:'image/jpeg'}});
+    if(error){toast('Error conectando con IA: '+error.message,'error');return null}
     return data;
-  }catch(e){return null}
+  }catch(e){toast('Error leyendo ticket: '+e.message,'error');return null}
 }
 
 // ─── Realtime ────────────────────────────────────────────────────────────────
