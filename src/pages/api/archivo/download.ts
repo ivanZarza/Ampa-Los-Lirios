@@ -1,3 +1,4 @@
+export const prerender = false;
 import type { APIRoute } from 'astro';
 import { getSession, isAdmin } from '../../../lib/auth';
 import { getServiceClient } from '../../../lib/supabase';

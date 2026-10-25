@@ -1,4 +1,5 @@
 ---
+export const prerender = false;
 import Admin from '../../layouts/Admin.astro';
 import { requireSuperAdmin, getAdminWithRole } from '../../lib/auth';
 import { getServiceClient } from '../../lib/supabase';

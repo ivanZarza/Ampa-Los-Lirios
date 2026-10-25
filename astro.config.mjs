@@ -3,7 +3,7 @@ import tailwind from '@astrojs/tailwind';
 import cloudflare from '@astrojs/cloudflare';
 
 export default defineConfig({
-  output: 'server',
+  output: 'static',
   adapter: cloudflare(),
   integrations: [tailwind()],
   site: import.meta.env.PUBLIC_SITE_URL || 'https://ampaloslirios.es',
