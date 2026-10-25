@@ -1,0 +1,208 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireAdmin } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+let mensaje = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action')?.toString();
+
+  if (action === 'upload') {
+    const file = form.get('archivo') as File | null;
+    const categoria = form.get('categoria')?.toString();
+    const curso = form.get('curso')?.toString() || null;
+    const descripcion = form.get('descripcion')?.toString() || null;
+
+    if (!file || !file.name || !categoria) {
+      error = 'Archivo y categoría son obligatorios.';
+    } else {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const ts = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${categoria}/${curso || 'general'}/${ts}_${safeName}`;
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const { error: upErr } = await service.storage
+        .from('documentos-ampa')
+        .upload(storagePath, buffer, { contentType: file.type, upsert: false });
+
+      if (upErr) {
+        error = 'Error al subir archivo: ' + upErr.message;
+      } else {
+        const { error: dbErr } = await service.from('documentos').insert({
+          nombre: file.name,
+          categoria,
+          curso_escolar: curso,
+          descripcion,
+          tipo_archivo: ext,
+          tamano_bytes: file.size,
+          storage_path: storagePath,
+          created_by: session.user.email,
+        });
+        if (dbErr) error = 'Archivo subido pero error al registrar: ' + dbErr.message;
+        else mensaje = `"${file.name}" subido correctamente.`;
+      }
+    }
+  }
+
+  if (action === 'delete') {
+    const docId = form.get('doc_id')?.toString();
+    if (docId) {
+      const { data: doc } = await service.from('documentos').select('storage_path').eq('id', docId).single();
+      if (doc) {
+        await service.storage.from('documentos-ampa').remove([doc.storage_path]);
+        await service.from('documentos').delete().eq('id', docId);
+        mensaje = 'Documento eliminado.';
+      }
+    }
+  }
+}
+
+const categoriaFiltro = Astro.url.searchParams.get('cat') || '';
+const cursoFiltro = Astro.url.searchParams.get('curso') || '';
+
+let query = service.from('documentos').select('*').order('created_at', { ascending: false });
+if (categoriaFiltro) query = query.eq('categoria', categoriaFiltro);
+if (cursoFiltro) query = query.eq('curso_escolar', cursoFiltro);
+const { data: docs } = await query.limit(100);
+
+const { data: allDocs } = await service.from('documentos').select('categoria, curso_escolar');
+const categorias = [...new Set((allDocs || []).map((d: any) => d.categoria))].sort();
+const cursos = [...new Set((allDocs || []).filter((d: any) => d.curso_escolar).map((d: any) => d.curso_escolar))].sort().reverse();
+
+const CATEGORIAS_OPCIONES = [
+  'correspondencia', 'economia', 'estatutos', 'fiestas', 'junta_directiva',
+  'plantillas', 'proyectos', 'registros', 'subvenciones', 'varios'
+];
+
+const iconoTipo: Record<string, string> = {
+  pdf: '📄', docx: '📝', doc: '📝', odt: '📝', xlsx: '📊', xls: '📊',
+  txt: '📃', html: '🌐', jpg: '🖼️', jpeg: '🖼️', png: '🖼️',
+};
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+---
+
+<Admin title="Archivo">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Archivo documental</h1>
+    <span class="text-sm text-gray-400">{(docs || []).length} documentos</span>
+  </div>
+
+  {mensaje && <div class="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-3 mb-4 text-sm">{mensaje}</div>}
+  {error && <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">{error}</div>}
+
+  {/* Subir documento */}
+  <details class="card p-6 mb-6">
+    <summary class="font-bold cursor-pointer list-none flex items-center gap-2">
+      <span class="text-lg">➕</span> Subir documento
+    </summary>
+    <form method="POST" enctype="multipart/form-data" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <input type="hidden" name="_action" value="upload" />
+      <div class="sm:col-span-2">
+        <label class="label-field">Archivo</label>
+        <input type="file" name="archivo" required class="input-field" />
+      </div>
+      <div>
+        <label class="label-field">Categoría</label>
+        <select name="categoria" required class="input-field">
+          <option value="">Seleccionar...</option>
+          {CATEGORIAS_OPCIONES.map(c => (
+            <option value={c}>{c.charAt(0).toUpperCase() + c.slice(1).replace('_', ' ')}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label class="label-field">Curso escolar</label>
+        <select name="curso" class="input-field">
+          <option value="">General</option>
+          <option value="2026-2027">2026-2027</option>
+          <option value="2025-2026">2025-2026</option>
+          <option value="2024-2025">2024-2025</option>
+          <option value="2023-2024">2023-2024</option>
+          <option value="2022-2023">2022-2023</option>
+          <option value="2021-2022">2021-2022</option>
+          <option value="2020-2021">2020-2021</option>
+          <option value="2019-2020">2019-2020</option>
+          <option value="2018-2019">2018-2019</option>
+          <option value="2017-2018">2017-2018</option>
+          <option value="2016-2017">2016-2017</option>
+        </select>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="label-field">Descripción (opcional)</label>
+        <input type="text" name="descripcion" class="input-field" placeholder="Breve descripción del documento" />
+      </div>
+      <div class="sm:col-span-2">
+        <button type="submit" class="btn-primary text-sm">Subir documento</button>
+      </div>
+    </form>
+  </details>
+
+  {/* Filtros */}
+  <div class="flex flex-wrap gap-2 mb-4">
+    <a href="/admin/archivo" class={`text-xs px-3 py-1.5 rounded-full border transition-colors ${!categoriaFiltro && !cursoFiltro ? 'bg-verde-50 border-verde-500 text-verde-700' : 'border-gray-200 text-gray-500 hover:border-verde-300'}`}>
+      Todos
+    </a>
+    {categorias.map((cat: string) => (
+      <a href={`/admin/archivo?cat=${cat}${cursoFiltro ? '&curso=' + cursoFiltro : ''}`}
+        class={`text-xs px-3 py-1.5 rounded-full border transition-colors ${categoriaFiltro === cat ? 'bg-verde-50 border-verde-500 text-verde-700' : 'border-gray-200 text-gray-500 hover:border-verde-300'}`}>
+        {cat.charAt(0).toUpperCase() + cat.slice(1).replace('_', ' ')}
+      </a>
+    ))}
+    {cursos.length > 0 && (
+      <select onchange={`location.href='/admin/archivo?${categoriaFiltro ? 'cat=' + categoriaFiltro + '&' : ''}curso='+this.value`} class="text-xs px-3 py-1.5 rounded-full border border-gray-200 bg-white">
+        <option value="">Todos los cursos</option>
+        {cursos.map((c: string) => (
+          <option value={c} selected={cursoFiltro === c}>{c}</option>
+        ))}
+      </select>
+    )}
+  </div>
+
+  {/* Lista de documentos */}
+  {(docs || []).length === 0 ? (
+    <div class="card p-8 text-center">
+      <p class="text-4xl mb-3">📁</p>
+      <p class="text-gray-500 mb-2">No hay documentos todavía.</p>
+      <p class="text-xs text-gray-400">Sube documentos del AMPA para tenerlos organizados y accesibles.</p>
+    </div>
+  ) : (
+    <div class="space-y-2">
+      {(docs || []).map((doc: any) => (
+        <div class="card px-4 py-3 flex items-center gap-3">
+          <span class="text-2xl">{iconoTipo[doc.tipo_archivo] || '📎'}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">{doc.nombre}</p>
+            <p class="text-xs text-gray-400">
+              {doc.categoria.charAt(0).toUpperCase() + doc.categoria.slice(1).replace('_', ' ')}
+              {doc.curso_escolar && ` · ${doc.curso_escolar}`}
+              {doc.tamano_bytes && ` · ${formatBytes(doc.tamano_bytes)}`}
+              {doc.descripcion && ` — ${doc.descripcion}`}
+            </p>
+          </div>
+          <a href={`/api/archivo/download?id=${doc.id}`}
+            class="btn-outline text-xs !py-1 !px-3" target="_blank">
+            Descargar
+          </a>
+          <form method="POST" onsubmit="return confirm('¿Eliminar este documento?')">
+            <input type="hidden" name="_action" value="delete" />
+            <input type="hidden" name="doc_id" value={doc.id} />
+            <button type="submit" class="btn-danger text-xs !py-1 !px-3">Eliminar</button>
+          </form>
+        </div>
+      ))}
+    </div>
+  )}
+</Admin>

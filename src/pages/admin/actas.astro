@@ -38,7 +38,7 @@ if (Astro.request.method === 'POST') {
         curso_escolar: cursoEscolar(fecha),
         fecha,
         hora_inicio: form.get('hora_inicio')?.toString() || null,
-        lugar: form.get('lugar')?.toString()?.trim() || 'Sala del AMPA',
+        lugar: form.get('lugar')?.toString()?.trim() || 'la Sala del AMPA',
         estado: 'borrador',
       }).select().single();
 
@@ -96,7 +96,7 @@ if (Astro.request.method === 'POST') {
       fecha,
       hora_inicio: form.get('hora_inicio')?.toString() || null,
       hora_fin: form.get('hora_fin')?.toString() || null,
-      lugar: form.get('lugar')?.toString()?.trim() || 'Sala del AMPA',
+      lugar: form.get('lugar')?.toString()?.trim() || 'la Sala del AMPA',
       lectura_acta_anterior: form.get('lectura_acta_anterior') === 'on',
       curso_escolar: fecha ? cursoEscolar(fecha) : undefined,
     }).eq('id', id);
@@ -466,12 +466,12 @@ const VOTACIONES = ['Aprobado por mayoría absoluta', 'Aprobado por unanimidad',
             </div>
             <div>
               <label class="label-field">Hora inicio</label>
-              <input type="time" name="hora_inicio" class="input-field" />
+              <input type="time" name="hora_inicio" class="input-field" value={new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })} />
             </div>
           </div>
           <div>
             <label class="label-field">Lugar</label>
-            <input type="text" name="lugar" class="input-field" value="Sala del AMPA" />
+            <input type="text" name="lugar" class="input-field" value="la Sala del AMPA" />
           </div>
         </div>
 

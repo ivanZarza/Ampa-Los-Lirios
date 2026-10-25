@@ -50,7 +50,7 @@ const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).
             font-family: 'Times New Roman', serif;
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 40px 50px;
             line-height: 1.3;
             color: #333;
             font-size: 13px;
@@ -78,6 +78,12 @@ const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).
             margin-bottom: 20px;
             border-bottom: 2px solid #2c5aa0;
             padding-bottom: 15px;
+        }
+        .header img {
+            height: 80px;
+            width: auto;
+            margin: 0 auto 8px;
+            display: block;
         }
         .orden-dia {
             background-color: #f9f9f9;
@@ -128,12 +134,13 @@ const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).
             font-family: system-ui, sans-serif;
         }
         @media print {
-            body { padding: 15px; font-size: 12px; }
+            body { padding: 20px 40px; font-size: 12px; }
             .screen-toolbar { display: none !important; }
             .header { margin-bottom: 15px; padding-bottom: 10px; }
-            .punto { margin: 8px 0; }
-            .firma { margin-top: 20px; }
-            .orden-dia { margin: 8px 0; padding: 8px; }
+            .punto { margin: 8px 0; break-inside: avoid; page-break-inside: avoid; }
+            .firma { margin-top: 20px; break-inside: avoid; page-break-inside: avoid; }
+            .orden-dia { margin: 8px 0; padding: 8px; break-inside: avoid; page-break-inside: avoid; }
+            .header img { height: 60px; }
         }
     </style>
 </head>
@@ -144,6 +151,7 @@ const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).
     </div>
 
     <div class="header">
+        <img src="/img/logo-ampa.png" alt="Escudo AMPA Los Lirios" />
         <h1>AMPA LOS LIRIOS</h1>
         <h2>C.E.I.P. ANDALUCÍA</h2>
         <h3>Acta nº {acta.numero}</h3>
@@ -154,7 +162,7 @@ const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).
 
     {acta.lectura_acta_anterior && <p><strong>Lectura del acta anterior:</strong> Conforme.</p>}
 
-    <p>Da comienzo la reunión{acta.hora_inicio ? ` a las ${acta.hora_inicio.slice(0, 5)}h.` : ''} del {fechaFormateada}{acta.lugar ? ` en ${acta.lugar}` : ''} del C.E.I.P. Andalucía.</p>
+    <p>Da comienzo la reunión{acta.hora_inicio ? ` a las ${acta.hora_inicio.slice(0, 5)}h.` : ''} del {fechaFormateada}{acta.lugar ? ` en ${acta.lugar}` : ''}.</p>
 
     {puntos && puntos.length > 0 && (
       <>
@@ -168,14 +176,15 @@ const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).
         {puntos.map((p: any) => (
           <div class="punto">
               <h3>{p.orden}º {p.titulo}</h3>
-              {p.desarrollo && <p>{p.desarrollo}</p>}
-              {p.resultado_votacion && <p><strong>{p.resultado_votacion}.</strong></p>}
+              {(p.desarrollo || p.resultado_votacion) && (
+                <p>{p.desarrollo}{p.resultado_votacion && <> <strong>{p.resultado_votacion}.</strong></>}</p>
+              )}
           </div>
         ))}
       </>
     )}
 
-    <p>Sin más{puntos && puntos.length > 0 ? ' asuntos que tratar' : ''}, {acta.tipo === 'asamblea_general' ? 'se levanta la sesión' : 'concluye la reunión'}{acta.hora_fin ? ` a las ${acta.hora_fin.slice(0, 5)}h` : ''}.</p>
+    <p>Sin más{['asamblea_general', 'cambio_directiva'].includes(acta.tipo) ? ' asuntos que tratar' : ''}, {['asamblea_general', 'cambio_directiva'].includes(acta.tipo) ? 'se levanta la sesión' : 'concluye la reunión'}{acta.hora_fin ? ` a las ${acta.hora_fin.slice(0, 5)}h` : ''}.</p>
 
     <div class="firma">
         <p>Camas, {fechaFormateada}</p>
