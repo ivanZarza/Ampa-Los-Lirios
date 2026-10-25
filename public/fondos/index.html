@@ -782,13 +782,28 @@ try{const s=localStorage.getItem('ampa_pa');if(s&&D.perfiles.some(p=>p.id===s))p
 window.addEventListener('hashchange',route);
 route();
 
-syncFromDb().then(ok=>{
-  if(ok){
-    try{const s=localStorage.getItem('ampa_pa');if(s&&D.perfiles.some(p=>p.id===s))perfActivo=s}catch(e){}
-    route();
+function initSync(){
+  const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
+  Promise.race([syncFromDb(),timeout]).then(ok=>{
+    if(ok){
+      try{const s=localStorage.getItem('ampa_pa');if(s&&D.perfiles.some(p=>p.id===s))perfActivo=s}catch(e){}
+      route();
+      setupRealtime();
+    }else if(!D.perfiles.length){
+      app().innerHTML=`<div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-verde-700 to-verde-900 px-6">
+        <p class="text-white text-lg mb-4">No se pudo conectar</p>
+        <button onclick="location.reload()" class="bg-white text-verde-800 font-bold px-6 py-3 rounded-xl shadow">Reintentar</button></div>`;
+    }
+  }).catch(()=>{
+    if(!D.perfiles.length){
+      app().innerHTML=`<div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-verde-700 to-verde-900 px-6">
+        <p class="text-white text-lg mb-4">No se pudo conectar</p>
+        <button onclick="location.reload()" class="bg-white text-verde-800 font-bold px-6 py-3 rounded-xl shadow">Reintentar</button></div>`;
+    }
     setupRealtime();
-  }
-});
+  });
+}
+initSync();
 </script>
 </body>
 </html>
