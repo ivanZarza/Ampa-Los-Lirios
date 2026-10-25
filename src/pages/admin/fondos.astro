@@ -1,0 +1,83 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireAdmin } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+
+const { data: registros } = await service
+  .from('fondos_registros')
+  .select('*, fondos_categorias(nombre)')
+  .order('creado_en', { ascending: false })
+  .limit(50);
+
+const { data: categorias } = await service
+  .from('fondos_categorias')
+  .select('*')
+  .eq('activa', true)
+  .order('nombre');
+
+// Calcular totales
+let totalIngresos = 0;
+let totalGastos = 0;
+(registros || []).forEach((r: any) => {
+  if (r.tipo === 'ingreso') totalIngresos += Number(r.cantidad);
+  else if (r.tipo === 'gasto') totalGastos += Number(r.cantidad);
+});
+const saldo = totalIngresos - totalGastos;
+---
+
+<Admin title="Fondos">
+  <h1 class="text-2xl font-bold mb-6">Fondos y Tesorería</h1>
+
+  {/* Resumen */}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="card p-4 text-center">
+      <p class="text-xs text-gray-400 mb-1">Ingresos</p>
+      <p class="text-xl font-bold text-green-600">{totalIngresos.toFixed(2)} €</p>
+    </div>
+    <div class="card p-4 text-center">
+      <p class="text-xs text-gray-400 mb-1">Gastos</p>
+      <p class="text-xl font-bold text-red-600">{totalGastos.toFixed(2)} €</p>
+    </div>
+    <div class="card p-4 text-center">
+      <p class="text-xs text-gray-400 mb-1">Saldo</p>
+      <p class={`text-xl font-bold ${saldo >= 0 ? 'text-verde-600' : 'text-red-600'}`}>{saldo.toFixed(2)} €</p>
+    </div>
+  </div>
+
+  {(registros || []).length === 0 ? (
+    <div class="card p-8 text-center">
+      <p class="text-4xl mb-3">💰</p>
+      <p class="text-gray-500 mb-2">No hay registros de fondos todavía.</p>
+      <p class="text-xs text-gray-400">Los registros de ingresos y gastos del AMPA aparecerán aquí.</p>
+    </div>
+  ) : (
+    <div class="card p-6">
+      <h2 class="text-base font-bold mb-4">Últimos movimientos</h2>
+      <div class="space-y-2">
+        {(registros || []).map((r: any) => (
+          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <span class={`text-lg ${r.tipo === 'ingreso' ? 'text-green-500' : 'text-red-500'}`}>
+              {r.tipo === 'ingreso' ? '↗' : '↘'}
+            </span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">{r.descripcion || 'Sin descripción'}</p>
+              <p class="text-xs text-gray-400">
+                {new Date(r.creado_en).toLocaleDateString('es-ES')}
+                {r.fondos_categorias?.nombre && ` · ${r.fondos_categorias.nombre}`}
+                {r.nombre_persona && ` · ${r.nombre_persona}`}
+              </p>
+            </div>
+            <span class={`font-bold text-sm ${r.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+              {r.tipo === 'ingreso' ? '+' : '-'}{Number(r.cantidad).toFixed(2)} €
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</Admin>

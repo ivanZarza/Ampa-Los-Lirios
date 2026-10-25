@@ -1,0 +1,390 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireAdmin } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+let mensaje = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action')?.toString();
+
+  if (action === 'create') {
+    const nombre = form.get('nombre_completo')?.toString()?.trim();
+    if (!nombre) {
+      error = 'El nombre es obligatorio.';
+    } else {
+      const payload: Record<string, unknown> = {
+        nombre_completo: nombre,
+        dni: form.get('dni')?.toString()?.trim() || null,
+        telefono: form.get('telefono')?.toString()?.trim() || null,
+        email: form.get('email')?.toString()?.trim() || null,
+        fecha_alta: form.get('fecha_alta')?.toString() || new Date().toISOString().slice(0, 10),
+        activo: true,
+        notas: form.get('notas')?.toString()?.trim() || null,
+      };
+      const { data: nuevo, error: err } = await service.from('miembros_ampa').insert(payload).select().single();
+      if (err) error = 'Error al crear: ' + err.message;
+      else {
+        const cargo = form.get('cargo_inicial')?.toString()?.trim();
+        if (cargo && nuevo) {
+          await service.from('miembros_cargos').insert({
+            miembro_id: nuevo.id,
+            cargo,
+            fecha_inicio: payload.fecha_alta,
+          });
+        }
+        mensaje = 'Miembro añadido correctamente.';
+      }
+    }
+  }
+
+  if (action === 'update') {
+    const id = form.get('id')?.toString();
+    const nombre = form.get('nombre_completo')?.toString()?.trim();
+    if (!nombre) {
+      error = 'El nombre es obligatorio.';
+    } else {
+      const payload = {
+        nombre_completo: nombre,
+        dni: form.get('dni')?.toString()?.trim() || null,
+        telefono: form.get('telefono')?.toString()?.trim() || null,
+        email: form.get('email')?.toString()?.trim() || null,
+        fecha_alta: form.get('fecha_alta')?.toString() || null,
+        notas: form.get('notas')?.toString()?.trim() || null,
+      };
+      const { error: err } = await service.from('miembros_ampa').update(payload).eq('id', id);
+      if (err) error = 'Error al actualizar: ' + err.message;
+      else mensaje = 'Miembro actualizado.';
+    }
+  }
+
+  if (action === 'toggle_activo') {
+    const id = form.get('id')?.toString();
+    const nuevoEstado = form.get('activo') === 'true';
+    const updates: Record<string, unknown> = { activo: nuevoEstado };
+    if (!nuevoEstado) {
+      updates.fecha_baja = new Date().toISOString().slice(0, 10);
+      await service.from('miembros_cargos').update({ fecha_fin: new Date().toISOString().slice(0, 10) }).eq('miembro_id', id).is('fecha_fin', null);
+    } else {
+      updates.fecha_baja = null;
+    }
+    const { error: err } = await service.from('miembros_ampa').update(updates).eq('id', id);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = nuevoEstado ? 'Miembro reactivado.' : 'Miembro marcado como inactivo.';
+  }
+
+  if (action === 'delete') {
+    const id = form.get('id')?.toString();
+    const { error: err } = await service.from('miembros_ampa').delete().eq('id', id);
+    if (err) error = 'Error al borrar: ' + err.message;
+    else mensaje = 'Miembro eliminado.';
+  }
+
+  if (action === 'add_cargo') {
+    const miembroId = form.get('miembro_id')?.toString();
+    const cargo = form.get('cargo')?.toString()?.trim();
+    const fechaInicio = form.get('fecha_inicio')?.toString();
+    if (!cargo || !fechaInicio) {
+      error = 'El cargo y la fecha de inicio son obligatorios.';
+    } else {
+      const { error: err } = await service.from('miembros_cargos').insert({
+        miembro_id: miembroId,
+        cargo,
+        fecha_inicio: fechaInicio,
+      });
+      if (err) error = 'Error al añadir cargo: ' + err.message;
+      else mensaje = 'Cargo añadido.';
+    }
+  }
+
+  if (action === 'close_cargo') {
+    const cargoId = form.get('cargo_id')?.toString();
+    const fechaFin = form.get('fecha_fin')?.toString() || new Date().toISOString().slice(0, 10);
+    const { error: err } = await service.from('miembros_cargos').update({ fecha_fin: fechaFin }).eq('id', cargoId);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Cargo cerrado.';
+  }
+
+  if (action === 'delete_cargo') {
+    const cargoId = form.get('cargo_id')?.toString();
+    const { error: err } = await service.from('miembros_cargos').delete().eq('id', cargoId);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Cargo eliminado.';
+  }
+}
+
+// Filtros
+const filtroEstado = Astro.url.searchParams.get('estado') || 'activos';
+const filtroCargo = Astro.url.searchParams.get('cargo') || '';
+const filtroBusqueda = Astro.url.searchParams.get('q') || '';
+
+// Query miembros
+let query = service.from('miembros_ampa').select('*, miembros_cargos(*)').order('nombre_completo');
+
+if (filtroEstado === 'activos') query = query.eq('activo', true);
+else if (filtroEstado === 'inactivos') query = query.eq('activo', false);
+
+if (filtroBusqueda) query = query.ilike('nombre_completo', `%${filtroBusqueda}%`);
+
+const { data: miembros } = await query;
+
+// Filtrar por cargo actual (en JS porque es una relacion)
+// Los cargos en BD pueden ser "Presidenta"/"Presidente" y el filtro usa "Presidente/a"
+function cargoCoincide(cargoBD: string, filtro: string): boolean {
+  if (cargoBD === filtro) return true;
+  if (!filtro.endsWith('/a')) return false;
+  const raiz = filtro.replace(/\/a$/, '').slice(0, -1);
+  return cargoBD.startsWith(raiz);
+}
+
+let miembrosFiltrados = miembros || [];
+if (filtroCargo) {
+  miembrosFiltrados = miembrosFiltrados.filter((m: any) =>
+    m.miembros_cargos?.some((c: any) => cargoCoincide(c.cargo, filtroCargo) && !c.fecha_fin)
+  );
+}
+
+// Helper: cargo actual de un miembro
+function cargoActual(miembro: any): string {
+  const activos = miembro.miembros_cargos?.filter((c: any) => !c.fecha_fin) || [];
+  return activos.map((c: any) => c.cargo).join(', ') || '';
+}
+
+// Edicion
+const editId = Astro.url.searchParams.get('editar');
+const editMiembro = editId ? miembrosFiltrados.find((m: any) => m.id === editId) : null;
+const showForm = Astro.url.searchParams.has('nuevo') || editMiembro;
+
+// Para el formulario de edicion: todos los cargos del miembro
+let cargosMiembro: any[] = [];
+if (editMiembro) {
+  const { data } = await service.from('miembros_cargos')
+    .select('*')
+    .eq('miembro_id', editMiembro.id)
+    .order('fecha_inicio', { ascending: false });
+  cargosMiembro = data || [];
+}
+
+const CARGOS = ['Presidente/a', 'Vicepresidente/a', 'Secretario/a', 'Tesorero/a', 'Vocal', 'Colaborador/a'];
+---
+
+<Admin title="Miembros">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Miembros del AMPA</h1>
+    {!showForm && (
+      <a href="/admin/miembros?nuevo" class="btn-primary text-sm">+ Nuevo miembro</a>
+    )}
+  </div>
+
+  {mensaje && (
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">{mensaje}</div>
+  )}
+  {error && (
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+  )}
+
+  {showForm ? (
+    <div class="card p-6 mb-8">
+      <h2 class="text-lg font-bold mb-4">{editMiembro ? 'Editar miembro' : 'Nuevo miembro'}</h2>
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="_action" value={editMiembro ? 'update' : 'create'} />
+        {editMiembro && <input type="hidden" name="id" value={editMiembro.id} />}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="nombre_completo" class="label-field">Nombre completo *</label>
+            <input type="text" id="nombre_completo" name="nombre_completo" required class="input-field" value={editMiembro?.nombre_completo || ''} />
+          </div>
+          <div>
+            <label for="dni" class="label-field">DNI</label>
+            <input type="text" id="dni" name="dni" class="input-field" value={editMiembro?.dni || ''} placeholder="12345678A" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="telefono" class="label-field">Teléfono</label>
+            <input type="tel" id="telefono" name="telefono" class="input-field" value={editMiembro?.telefono || ''} />
+          </div>
+          <div>
+            <label for="email" class="label-field">Email</label>
+            <input type="email" id="email" name="email" class="input-field" value={editMiembro?.email || ''} />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="fecha_alta" class="label-field">Fecha de alta</label>
+            <input type="date" id="fecha_alta" name="fecha_alta" class="input-field" value={editMiembro?.fecha_alta || new Date().toISOString().slice(0, 10)} />
+          </div>
+          {!editMiembro && (
+            <div>
+              <label for="cargo_inicial" class="label-field">Cargo inicial</label>
+              <select id="cargo_inicial" name="cargo_inicial" class="input-field">
+                <option value="">Sin cargo</option>
+                {CARGOS.map(c => <option value={c}>{c}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label for="notas" class="label-field">Notas</label>
+          <textarea id="notas" name="notas" rows="2" class="input-field">{editMiembro?.notas || ''}</textarea>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary text-sm">{editMiembro ? 'Guardar cambios' : 'Añadir miembro'}</button>
+          <a href="/admin/miembros" class="btn-outline text-sm">Cancelar</a>
+        </div>
+      </form>
+
+      {/* Gestion de cargos al editar */}
+      {editMiembro && (
+        <div class="mt-8 pt-6 border-t border-gray-200">
+          <h3 class="text-base font-bold text-gray-900 mb-3">Historial de cargos</h3>
+
+          {cargosMiembro.length > 0 ? (
+            <div class="space-y-2 mb-4">
+              {cargosMiembro.map((c: any) => (
+                <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                  <div>
+                    <span class={`font-semibold ${!c.fecha_fin ? 'text-verde-700' : 'text-gray-500'}`}>{c.cargo}</span>
+                    <span class="text-gray-400 ml-2">
+                      {new Date(c.fecha_inicio).toLocaleDateString('es-ES')}
+                      {c.fecha_fin ? ` → ${new Date(c.fecha_fin).toLocaleDateString('es-ES')}` : ' → actual'}
+                    </span>
+                  </div>
+                  <div class="flex gap-1">
+                    {!c.fecha_fin && (
+                      <form method="POST" class="inline">
+                        <input type="hidden" name="_action" value="close_cargo" />
+                        <input type="hidden" name="cargo_id" value={c.id} />
+                        <input type="hidden" name="fecha_fin" value={new Date().toISOString().slice(0, 10)} />
+                        <button type="submit" class="text-xs text-yellow-700 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded transition-colors" title="Cerrar cargo">
+                          Cerrar
+                        </button>
+                      </form>
+                    )}
+                    <form method="POST" class="inline" onsubmit="return confirm('¿Eliminar este cargo del historial?')">
+                      <input type="hidden" name="_action" value="delete_cargo" />
+                      <input type="hidden" name="cargo_id" value={c.id} />
+                      <button type="submit" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded transition-colors" title="Eliminar">
+                        ✕
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p class="text-sm text-gray-400 mb-4">Sin cargos registrados.</p>
+          )}
+
+          <form method="POST" class="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="_action" value="add_cargo" />
+            <input type="hidden" name="miembro_id" value={editMiembro.id} />
+            <div>
+              <label class="label-field text-xs">Cargo</label>
+              <select name="cargo" required class="input-field !py-2 text-sm">
+                {CARGOS.map(c => <option value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label class="label-field text-xs">Desde</label>
+              <input type="date" name="fecha_inicio" required class="input-field !py-2 text-sm" value={new Date().toISOString().slice(0, 10)} />
+            </div>
+            <button type="submit" class="btn-primary text-sm !py-2">+ Añadir cargo</button>
+          </form>
+        </div>
+      )}
+    </div>
+  ) : (
+    <>
+      {/* Filtros */}
+      <form method="GET" class="card p-4 mb-6">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div>
+            <label class="label-field text-xs">Estado</label>
+            <select name="estado" class="input-field !py-2 text-sm" onchange="this.form.submit()">
+              <option value="activos" selected={filtroEstado === 'activos'}>Activos</option>
+              <option value="inactivos" selected={filtroEstado === 'inactivos'}>Inactivos</option>
+              <option value="todos" selected={filtroEstado === 'todos'}>Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="label-field text-xs">Cargo actual</label>
+            <select name="cargo" class="input-field !py-2 text-sm" onchange="this.form.submit()">
+              <option value="">Todos</option>
+              {CARGOS.map(c => <option value={c} selected={filtroCargo === c}>{c}</option>)}
+            </select>
+          </div>
+          <div class="flex-1 min-w-[150px]">
+            <label class="label-field text-xs">Buscar</label>
+            <input type="text" name="q" class="input-field !py-2 text-sm" placeholder="Nombre..." value={filtroBusqueda} />
+          </div>
+          <button type="submit" class="btn-outline text-sm !py-2 !px-4">Filtrar</button>
+        </div>
+      </form>
+
+      {/* Resumen */}
+      <p class="text-sm text-gray-500 mb-3">{miembrosFiltrados.length} miembro{miembrosFiltrados.length !== 1 ? 's' : ''}</p>
+
+      {/* Lista */}
+      {miembrosFiltrados.length > 0 ? (
+        <div class="space-y-2">
+          {miembrosFiltrados.map((m: any) => {
+            const cargo = cargoActual(m);
+            return (
+              <div class={`card p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${!m.activo ? 'opacity-60' : ''}`}>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="font-bold text-gray-900">{m.nombre_completo}</h3>
+                    {cargo && (
+                      <span class="text-xs bg-verde-50 text-verde-700 px-2 py-0.5 rounded-full font-medium">{cargo}</span>
+                    )}
+                    {!m.activo && (
+                      <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactivo</span>
+                    )}
+                  </div>
+                  <p class="text-sm text-gray-500">
+                    {m.dni && `DNI: ${m.dni}`}
+                    {m.dni && m.telefono && ' · '}
+                    {m.telefono && `Tel: ${m.telefono}`}
+                    {!m.dni && !m.telefono && `Alta: ${new Date(m.fecha_alta).toLocaleDateString('es-ES')}`}
+                  </p>
+                </div>
+                <div class="flex gap-2 flex-shrink-0 flex-wrap">
+                  <a href={`/admin/miembros?editar=${m.id}`} class="btn-outline text-sm !px-3 !py-1.5">Editar</a>
+                  <form method="POST">
+                    <input type="hidden" name="_action" value="toggle_activo" />
+                    <input type="hidden" name="id" value={m.id} />
+                    <input type="hidden" name="activo" value={m.activo ? 'false' : 'true'} />
+                    <button type="submit" class={`text-sm !px-3 !py-1.5 rounded-xl font-semibold border-2 transition-all ${m.activo ? 'border-yellow-400 text-yellow-700 hover:bg-yellow-50' : 'border-verde-400 text-verde-700 hover:bg-verde-50'}`}>
+                      {m.activo ? 'Desactivar' : 'Reactivar'}
+                    </button>
+                  </form>
+                  <form method="POST" onsubmit="return confirm('¿Seguro? Se borrará el miembro y todo su historial.')">
+                    <input type="hidden" name="_action" value="delete" />
+                    <input type="hidden" name="id" value={m.id} />
+                    <button type="submit" class="btn-danger !px-3 !py-1.5">Borrar</button>
+                  </form>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div class="bg-gray-50 rounded-xl p-8 text-center">
+          <p class="text-gray-500">No hay miembros que coincidan con los filtros.</p>
+        </div>
+      )}
+    </>
+  )}
+</Admin>

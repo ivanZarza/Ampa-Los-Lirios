@@ -1,0 +1,204 @@
+---
+import { requireAdmin } from '../../../lib/auth';
+import { getServiceClient } from '../../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const id = Astro.url.searchParams.get('id');
+if (!id) return Astro.redirect('/admin/actas');
+
+const service = getServiceClient();
+const { data: acta } = await service.from('actas').select('*').eq('id', id).single();
+if (!acta) return Astro.redirect('/admin/actas');
+
+const { data: puntos } = await service.from('actas_puntos').select('*').eq('acta_id', id).order('orden');
+const { data: asistentes } = await service.from('actas_asistentes').select('*').eq('acta_id', id);
+
+const TIPO_LABELS: Record<string, string> = {
+  ordinaria: 'REUNIÓN ORDINARIA',
+  extraordinaria: 'REUNIÓN EXTRAORDINARIA',
+  asamblea_general: 'ASAMBLEA GENERAL',
+  cambio_directiva: 'ACTA DE CAMBIO DE DIRECTIVA',
+};
+
+const fechaFormateada = new Date(acta.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+// Firmantes: presidente/a y secretario/a
+const firmantes = (asistentes || []).filter((a: any) =>
+  a.cargo_snapshot && (
+    a.cargo_snapshot.toLowerCase().includes('presidente') ||
+    a.cargo_snapshot.toLowerCase().includes('presidenta') ||
+    a.cargo_snapshot.toLowerCase().includes('secretario') ||
+    a.cargo_snapshot.toLowerCase().includes('secretaria')
+  )
+);
+const presidente = firmantes.find((f: any) => f.cargo_snapshot?.toLowerCase().includes('president'));
+const secretario = firmantes.find((f: any) => f.cargo_snapshot?.toLowerCase().includes('secretari'));
+
+const nombresAsistentes = (asistentes || []).map((a: any) => a.nombre_snapshot).join(', ');
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acta nº {acta.numero} — AMPA Los Lirios</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.3;
+            color: #333;
+            font-size: 13px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #2c5aa0;
+            font-size: 20px;
+        }
+        h2 {
+            color: #2c5aa0;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        h3 {
+            color: #1a3a70;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #2c5aa0;
+            padding-bottom: 15px;
+        }
+        .orden-dia {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-left: 4px solid #2c5aa0;
+            margin: 12px 0;
+        }
+        .punto {
+            margin: 12px 0;
+            padding: 5px 0;
+        }
+        .firma {
+            margin-top: 25px;
+            text-align: right;
+        }
+        p { margin: 6px 0; }
+        ul { margin: 5px 0; padding-left: 15px; }
+        li { margin: 2px 0; }
+        .screen-toolbar {
+            max-width: 800px;
+            margin: 0 auto 16px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .btn-print {
+            background: #2c5aa0;
+            color: #fff;
+            border: none;
+            padding: 9px 18px;
+            font-size: 13.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: system-ui, sans-serif;
+        }
+        .btn-print:hover { background: #1a3a70; }
+        .btn-back {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            padding: 9px 18px;
+            font-size: 13.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: system-ui, sans-serif;
+        }
+        @media print {
+            body { padding: 15px; font-size: 12px; }
+            .screen-toolbar { display: none !important; }
+            .header { margin-bottom: 15px; padding-bottom: 10px; }
+            .punto { margin: 8px 0; }
+            .firma { margin-top: 20px; }
+            .orden-dia { margin: 8px 0; padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-toolbar">
+        <a href={`/admin/actas?editar=${acta.id}`} class="btn-back">← Volver al acta</a>
+        <button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+    </div>
+
+    <div class="header">
+        <h1>AMPA LOS LIRIOS</h1>
+        <h2>C.E.I.P. ANDALUCÍA</h2>
+        <h3>Acta nº {acta.numero}</h3>
+        <p><strong>{TIPO_LABELS[acta.tipo] || acta.tipo.toUpperCase()}</strong></p>
+    </div>
+
+    <p><strong>Asistentes:</strong> {nombresAsistentes || 'No registrados.'}</p>
+
+    {acta.lectura_acta_anterior && <p><strong>Lectura del acta anterior:</strong> Conforme.</p>}
+
+    <p>Da comienzo la reunión{acta.hora_inicio ? ` a las ${acta.hora_inicio.slice(0, 5)}h.` : ''} del {fechaFormateada}{acta.lugar ? ` en ${acta.lugar}` : ''} del C.E.I.P. Andalucía.</p>
+
+    {puntos && puntos.length > 0 && (
+      <>
+        <div class="orden-dia">
+            <h3>Orden del día</h3>
+            <ol>
+                {puntos.map((p: any) => <li>{p.titulo}</li>)}
+            </ol>
+        </div>
+
+        {puntos.map((p: any) => (
+          <div class="punto">
+              <h3>{p.orden}º {p.titulo}</h3>
+              {p.desarrollo && <p>{p.desarrollo}</p>}
+              {p.resultado_votacion && <p><strong>{p.resultado_votacion}.</strong></p>}
+          </div>
+        ))}
+      </>
+    )}
+
+    <p>Sin más{puntos && puntos.length > 0 ? ' asuntos que tratar' : ''}, {acta.tipo === 'asamblea_general' ? 'se levanta la sesión' : 'concluye la reunión'}{acta.hora_fin ? ` a las ${acta.hora_fin.slice(0, 5)}h` : ''}.</p>
+
+    <div class="firma">
+        <p>Camas, {fechaFormateada}</p>
+        <br><br>
+        {secretario && (
+          <>
+            <p>_________________________</p>
+            <p><strong>{secretario.nombre_snapshot}</strong><br>{secretario.cargo_snapshot}</p>
+            <br>
+          </>
+        )}
+        {presidente && (
+          <>
+            <p>_________________________</p>
+            <p><strong>{presidente.nombre_snapshot}</strong><br>{presidente.cargo_snapshot}</p>
+          </>
+        )}
+        {!secretario && !presidente && (
+          <>
+            <p>_________________________</p>
+            <p><strong>AMPA Los Lirios</strong></p>
+          </>
+        )}
+    </div>
+</body>
+</html>

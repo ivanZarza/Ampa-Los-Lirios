@@ -66,3 +66,72 @@ export async function requireSuperAdmin(cookies: AstroCookies) {
   if (!isSuperAdmin(session.user.email)) return null;
   return session;
 }
+
+export async function getAdminWithRole(email: string) {
+  const service = getServiceClient();
+  const { data } = await service
+    .from('admins')
+    .select('id, email, nombre, rol')
+    .eq('email', email)
+    .single();
+  return data;
+}
+
+export async function canAccessRoute(email: string, ruta: string): Promise<boolean> {
+  const service = getServiceClient();
+
+  const admin = await getAdminWithRole(email);
+  if (!admin) return false;
+  if (admin.rol === 'superadmin') return true;
+
+  // Normalizar ruta: /admin/actas/pdf → /admin/actas
+  const rutaBase = '/' + ruta.replace(/^\//, '').split('/').slice(0, 2).join('/');
+
+  // Comprobar permiso individual (override)
+  const { data: permiso } = await service
+    .from('permisos_rutas')
+    .select('permitido')
+    .eq('admin_id', admin.id)
+    .eq('ruta', rutaBase)
+    .single();
+
+  if (permiso) return permiso.permitido;
+
+  // Sin override → comprobar rol por defecto en rutas_admin
+  const { data: rutaDef } = await service
+    .from('rutas_admin')
+    .select('roles_permitidos')
+    .eq('ruta', rutaBase)
+    .single();
+
+  if (!rutaDef) return true; // ruta no definida → permitir
+  return rutaDef.roles_permitidos.includes(admin.rol);
+}
+
+export async function getRoutesForUser(email: string) {
+  const service = getServiceClient();
+  const admin = await getAdminWithRole(email);
+  if (!admin) return [];
+
+  const { data: rutas } = await service
+    .from('rutas_admin')
+    .select('*')
+    .order('orden');
+
+  if (!rutas) return [];
+
+  if (admin.rol === 'superadmin') return rutas;
+
+  // Obtener overrides del usuario
+  const { data: overrides } = await service
+    .from('permisos_rutas')
+    .select('ruta, permitido')
+    .eq('admin_id', admin.id);
+
+  const overrideMap = new Map((overrides || []).map(o => [o.ruta, o.permitido]));
+
+  return rutas.filter(r => {
+    if (overrideMap.has(r.ruta)) return overrideMap.get(r.ruta);
+    return r.roles_permitidos.includes(admin.rol);
+  });
+}

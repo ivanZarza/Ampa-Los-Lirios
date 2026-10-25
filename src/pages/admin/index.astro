@@ -1,49 +1,30 @@
 ---
 import Admin from '../../layouts/Admin.astro';
-import { requireAdmin, isSuperAdmin } from '../../lib/auth';
+import { requireAdmin, getRoutesForUser } from '../../lib/auth';
 
 const session = await requireAdmin(Astro.cookies);
 if (!session) return Astro.redirect('/admin/login');
 
-const superAdmin = isSuperAdmin(session.user.email!);
+const rutasUsuario = await getRoutesForUser(session.user.email!);
+const sinPermiso = Astro.url.searchParams.has('sin_permiso');
 ---
 
 <Admin title="Panel de administración">
+  {sinPermiso && (
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
+      No tienes permiso para acceder a esa sección.
+    </div>
+  )}
+
   <h1 class="text-2xl font-bold text-gray-900 mb-2">Panel de administración</h1>
   <p class="text-gray-500 mb-8">Bienvenido/a, {session.user.email}</p>
 
   <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <a href="/admin/fiestas" class="card p-6 hover:shadow-lg transition-shadow group">
-      <div class="text-3xl mb-3">🎉</div>
-      <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Fiestas y eventos</h2>
-      <p class="text-sm text-gray-500 mt-1">Crear, editar y borrar eventos</p>
-    </a>
-
-    <a href="/admin/galeria" class="card p-6 hover:shadow-lg transition-shadow group">
-      <div class="text-3xl mb-3">📸</div>
-      <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Galería de fotos</h2>
-      <p class="text-sm text-gray-500 mt-1">Crear álbumes y subir fotos</p>
-    </a>
-
-    <a href="/admin/colaboradores" class="card p-6 hover:shadow-lg transition-shadow group">
-      <div class="text-3xl mb-3">🤝</div>
-      <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Colaboradores</h2>
-      <p class="text-sm text-gray-500 mt-1">Gestionar tiendas colaboradoras</p>
-    </a>
-
-    <a href="/admin/cromos" class="card p-6 hover:shadow-lg transition-shadow group">
-      <div class="text-3xl mb-3">🏆</div>
-      <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Búsqueda del tesoro</h2>
-      <p class="text-sm text-gray-500 mt-1">Subir imágenes de los cromos</p>
-    </a>
-
-    {superAdmin && (
-      <a href="/admin/equipo" class="card p-6 hover:shadow-lg transition-shadow group border-2 border-dashed border-verde-200">
-        <div class="text-3xl mb-3">👥</div>
-        <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">Equipo</h2>
-        <p class="text-sm text-gray-500 mt-1">Gestionar administradores</p>
-        <span class="text-[10px] font-bold text-verde-600 uppercase tracking-wide mt-2 block">Solo superadmin</span>
+    {rutasUsuario.map((r: any) => (
+      <a href={r.ruta} class="card p-6 hover:shadow-lg transition-shadow group">
+        <div class="text-3xl mb-3">{r.icono}</div>
+        <h2 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors">{r.nombre}</h2>
       </a>
-    )}
+    ))}
   </div>
 </Admin>

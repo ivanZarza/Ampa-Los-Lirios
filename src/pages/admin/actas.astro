@@ -1,0 +1,760 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireAdmin } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+let mensaje = '';
+let error = '';
+
+// Helper: curso escolar a partir de una fecha
+function cursoEscolar(fecha: string): string {
+  const d = new Date(fecha);
+  const y = d.getFullYear();
+  const m = d.getMonth(); // 0-indexed
+  if (m >= 8) return `${y}-${y + 1}`; // sep-dic → curso actual
+  return `${y - 1}-${y}`; // ene-ago → curso anterior
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action')?.toString();
+
+  if (action === 'create') {
+    const fecha = form.get('fecha')?.toString();
+    if (!fecha) {
+      error = 'La fecha es obligatoria.';
+    } else {
+      // Obtener siguiente número de acta
+      const { data: ultima } = await service.from('actas').select('numero').order('numero', { ascending: false }).limit(1);
+      const siguienteNum = (ultima && ultima.length > 0) ? ultima[0].numero + 1 : 1;
+
+      const { data: nuevaActa, error: err } = await service.from('actas').insert({
+        numero: form.get('numero') ? parseInt(form.get('numero')!.toString()) : siguienteNum,
+        tipo: form.get('tipo')?.toString() || 'ordinaria',
+        curso_escolar: cursoEscolar(fecha),
+        fecha,
+        hora_inicio: form.get('hora_inicio')?.toString() || null,
+        lugar: form.get('lugar')?.toString()?.trim() || 'Sala del AMPA',
+        estado: 'borrador',
+      }).select().single();
+
+      if (err) error = 'Error al crear: ' + err.message;
+      else {
+        // Insertar asistentes seleccionados
+        const asistentes = form.getAll('asistente');
+        if (asistentes.length > 0 && nuevaActa) {
+          const { data: miembrosData } = await service.from('miembros_ampa')
+            .select('*, miembros_cargos(*)')
+            .in('id', asistentes.map(a => a.toString()));
+
+          if (miembrosData) {
+            const fechaActa = fecha;
+            const rows = miembrosData.map((m: any) => {
+              const cargoEnFecha = m.miembros_cargos?.find((c: any) =>
+                c.fecha_inicio <= fechaActa && (!c.fecha_fin || c.fecha_fin >= fechaActa)
+              );
+              return {
+                acta_id: nuevaActa.id,
+                miembro_id: m.id,
+                nombre_snapshot: m.nombre_completo,
+                dni_snapshot: m.dni,
+                cargo_snapshot: cargoEnFecha?.cargo || null,
+              };
+            });
+            await service.from('actas_asistentes').insert(rows);
+          }
+        }
+
+        // Insertar invitados escritos a mano
+        const invitadoNombres = form.getAll('invitado_nombre');
+        if (invitadoNombres.length > 0 && nuevaActa) {
+          const invitados = invitadoNombres
+            .map((n, i) => ({
+              acta_id: nuevaActa.id,
+              nombre_snapshot: n.toString().trim(),
+              dni_snapshot: form.getAll('invitado_dni')[i]?.toString()?.trim() || null,
+              cargo_snapshot: null,
+            }))
+            .filter(inv => inv.nombre_snapshot);
+          if (invitados.length > 0) await service.from('actas_asistentes').insert(invitados);
+        }
+
+        return Astro.redirect(`/admin/actas?editar=${nuevaActa.id}&msg=creada`);
+      }
+    }
+  }
+
+  if (action === 'update_meta') {
+    const id = form.get('id')?.toString();
+    const fecha = form.get('fecha')?.toString();
+    const { error: err } = await service.from('actas').update({
+      tipo: form.get('tipo')?.toString() || 'ordinaria',
+      fecha,
+      hora_inicio: form.get('hora_inicio')?.toString() || null,
+      hora_fin: form.get('hora_fin')?.toString() || null,
+      lugar: form.get('lugar')?.toString()?.trim() || 'Sala del AMPA',
+      lectura_acta_anterior: form.get('lectura_acta_anterior') === 'on',
+      curso_escolar: fecha ? cursoEscolar(fecha) : undefined,
+    }).eq('id', id);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Datos del acta actualizados.';
+  }
+
+  if (action === 'add_punto') {
+    const actaId = form.get('acta_id')?.toString();
+    const titulo = form.get('titulo')?.toString()?.trim();
+    if (!titulo) {
+      error = 'El título del punto es obligatorio.';
+    } else {
+      const { data: ultimoPunto } = await service.from('actas_puntos')
+        .select('orden').eq('acta_id', actaId).order('orden', { ascending: false }).limit(1);
+      const siguienteOrden = (ultimoPunto && ultimoPunto.length > 0) ? ultimoPunto[0].orden + 1 : 1;
+
+      const { error: err } = await service.from('actas_puntos').insert({
+        acta_id: actaId,
+        orden: siguienteOrden,
+        titulo,
+        desarrollo: form.get('desarrollo')?.toString()?.trim() || null,
+        resultado_votacion: form.get('resultado_votacion')?.toString() || null,
+      });
+      if (err) error = 'Error: ' + err.message;
+      else mensaje = 'Punto añadido.';
+    }
+  }
+
+  if (action === 'update_punto') {
+    const puntoId = form.get('punto_id')?.toString();
+    const { error: err } = await service.from('actas_puntos').update({
+      titulo: form.get('titulo')?.toString()?.trim(),
+      desarrollo: form.get('desarrollo')?.toString()?.trim() || null,
+      resultado_votacion: form.get('resultado_votacion')?.toString() || null,
+    }).eq('id', puntoId);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Punto actualizado.';
+  }
+
+  if (action === 'delete_punto') {
+    const puntoId = form.get('punto_id')?.toString();
+    const { error: err } = await service.from('actas_puntos').delete().eq('id', puntoId);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Punto eliminado.';
+  }
+
+  if (action === 'finalizar') {
+    const id = form.get('id')?.toString();
+    const horaFin = form.get('hora_fin')?.toString() || null;
+    const { error: err } = await service.from('actas').update({ estado: 'finalizada', hora_fin: horaFin }).eq('id', id);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Acta finalizada.';
+  }
+
+  if (action === 'reabrir') {
+    const id = form.get('id')?.toString();
+    const { error: err } = await service.from('actas').update({ estado: 'borrador' }).eq('id', id);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Acta reabierta como borrador.';
+  }
+
+  if (action === 'delete') {
+    const id = form.get('id')?.toString();
+    const { error: err } = await service.from('actas').delete().eq('id', id);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Acta eliminada.';
+  }
+
+  if (action === 'save_notas_brutas') {
+    const id = form.get('id')?.toString();
+    const { error: err } = await service.from('actas').update({
+      notas_brutas: form.get('notas_brutas')?.toString() || null,
+    }).eq('id', id);
+    if (err) error = 'Error: ' + err.message;
+    else mensaje = 'Notas guardadas.';
+  }
+}
+
+// Mensaje desde redirect
+if (Astro.url.searchParams.get('msg') === 'creada') mensaje = 'Acta creada. Ahora puedes añadir los puntos del orden del día.';
+
+// Vista
+const editId = Astro.url.searchParams.get('editar');
+const showNew = Astro.url.searchParams.has('nueva');
+const filtroCurso = Astro.url.searchParams.get('curso') || '';
+
+let editActa: any = null;
+let actaPuntos: any[] = [];
+let actaAsistentes: any[] = [];
+
+if (editId) {
+  const { data } = await service.from('actas').select('*').eq('id', editId).single();
+  editActa = data;
+  if (editActa) {
+    const { data: puntos } = await service.from('actas_puntos').select('*').eq('acta_id', editId).order('orden');
+    actaPuntos = puntos || [];
+    const { data: asist } = await service.from('actas_asistentes').select('*').eq('acta_id', editId);
+    actaAsistentes = asist || [];
+  }
+}
+
+// Miembros activos para el formulario de nueva acta
+const { data: miembrosActivos } = await service.from('miembros_ampa')
+  .select('*, miembros_cargos(*)')
+  .eq('activo', true)
+  .order('nombre_completo');
+
+// Helper: cargo actual
+function cargoActualMiembro(m: any): string {
+  return m.miembros_cargos?.find((c: any) => !c.fecha_fin)?.cargo || '';
+}
+
+// Listado de actas
+let actasQuery = service.from('actas').select('*').order('numero', { ascending: false });
+if (filtroCurso) actasQuery = actasQuery.eq('curso_escolar', filtroCurso);
+const { data: actas } = await actasQuery;
+
+// Cursos disponibles para filtro
+const cursosSet = new Set((actas || []).map((a: any) => a.curso_escolar));
+// Tambien obtener todos los cursos si no hay filtro
+if (!filtroCurso) {
+  const { data: todasActas } = await service.from('actas').select('curso_escolar');
+  (todasActas || []).forEach((a: any) => cursosSet.add(a.curso_escolar));
+}
+const cursos = [...cursosSet].sort().reverse();
+
+// Siguiente número de acta
+const { data: ultimaActa } = await service.from('actas').select('numero').order('numero', { ascending: false }).limit(1);
+const siguienteNumero = (ultimaActa && ultimaActa.length > 0) ? ultimaActa[0].numero + 1 : 1;
+
+const TIPOS = ['ordinaria', 'extraordinaria', 'asamblea_general', 'cambio_directiva'];
+const TIPO_LABELS: Record<string, string> = {
+  ordinaria: 'Reunión Ordinaria',
+  extraordinaria: 'Reunión Extraordinaria',
+  asamblea_general: 'Asamblea General',
+  cambio_directiva: 'Cambio de Directiva',
+};
+const VOTACIONES = ['Aprobado por mayoría absoluta', 'Aprobado por unanimidad', 'Rechazado', 'Informativo', 'Pendiente'];
+---
+
+<Admin title="Actas">
+  {mensaje && (
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">{mensaje}</div>
+  )}
+  {error && (
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+  )}
+
+  {/* ====== EDITAR ACTA ====== */}
+  {editActa ? (
+    <div data-asistentes={actaAsistentes.map((a: any) => a.nombre_snapshot).join(', ')} data-tipo={editActa.tipo} data-fecha={editActa.fecha}>
+      <meta name="sb-url" content={import.meta.env.PUBLIC_SUPABASE_URL} />
+      <meta name="sb-key" content={import.meta.env.PUBLIC_SUPABASE_ANON_KEY} />
+      <meta name="sb-token" content={session.access_token} />
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <a href="/admin/actas" class="text-sm text-verde-600 hover:text-verde-700 mb-1 inline-block">← Volver al listado</a>
+          <h1 class="text-2xl font-bold text-gray-900">
+            Acta nº {editActa.numero}
+            <span class={`text-sm font-medium ml-2 px-2 py-0.5 rounded-full ${editActa.estado === 'finalizada' ? 'bg-verde-50 text-verde-700' : 'bg-yellow-50 text-yellow-700'}`}>
+              {editActa.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
+            </span>
+          </h1>
+        </div>
+      </div>
+
+      {/* Datos del acta */}
+      <div class="card p-6 mb-6">
+        <h2 class="text-base font-bold mb-3">Datos de la reunión</h2>
+        <form method="POST" class="space-y-4">
+          <input type="hidden" name="_action" value="update_meta" />
+          <input type="hidden" name="id" value={editActa.id} />
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="label-field">Tipo</label>
+              <select name="tipo" class="input-field">
+                {TIPOS.map(t => <option value={t} selected={editActa.tipo === t}>{TIPO_LABELS[t]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label class="label-field">Fecha</label>
+              <input type="date" name="fecha" required class="input-field" value={editActa.fecha} />
+            </div>
+            <div>
+              <label class="label-field">Lugar</label>
+              <input type="text" name="lugar" class="input-field" value={editActa.lugar} />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="label-field">Hora inicio</label>
+              <input type="time" name="hora_inicio" class="input-field" value={editActa.hora_inicio || ''} />
+            </div>
+            <div>
+              <label class="label-field">Hora fin</label>
+              <input type="time" name="hora_fin" class="input-field" value={editActa.hora_fin || ''} />
+            </div>
+            <div class="flex items-end">
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="lectura_acta_anterior" class="w-4 h-4 text-verde-600 rounded" checked={editActa.lectura_acta_anterior} />
+                Lectura acta anterior: Conforme
+              </label>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary text-sm">Guardar datos</button>
+        </form>
+      </div>
+
+      {/* Asistentes */}
+      <div class="card p-6 mb-6">
+        <h2 class="text-base font-bold mb-3">Asistentes ({actaAsistentes.length})</h2>
+        <div class="flex flex-wrap gap-2">
+          {actaAsistentes.map((a: any) => (
+            <span class="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+              <span class="font-medium">{a.nombre_snapshot}</span>
+              {a.cargo_snapshot && <span class="text-verde-600 ml-1 text-xs">({a.cargo_snapshot})</span>}
+              {a.dni_snapshot && <span class="text-gray-400 ml-1 text-xs">{a.dni_snapshot}</span>}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Notas brutas + IA */}
+      <div class="card p-6 mb-6">
+        <h2 class="text-base font-bold mb-1">Notas rápidas</h2>
+        <p class="text-xs text-gray-400 mb-3">Escribe tus apuntes sueltos y usa la IA para convertirlos en puntos formales del acta.</p>
+        <form method="POST">
+          <input type="hidden" name="_action" value="save_notas_brutas" />
+          <input type="hidden" name="id" value={editActa.id} />
+          <textarea id="notas-brutas" name="notas_brutas" rows="5" class="input-field mb-3" placeholder="Apuntes de la reunión: temas tratados, acuerdos, votaciones...">{editActa.notas_brutas || ''}</textarea>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" class="btn-outline text-sm">Guardar notas</button>
+            <button type="button" id="btn-dictar" onclick="toggleDictado()" class="btn-outline text-sm">
+              🎙️ Dictar notas
+            </button>
+            <button type="button" id="btn-formalizar" onclick="formalizarConIA()" class="btn-primary text-sm">
+              Formalizar con IA
+            </button>
+          </div>
+          <div id="dictado-status" class="mt-2 hidden text-xs text-red-600 flex items-center gap-2">
+            <span class="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+            <span>Escuchando... Habla ahora. Pulsa de nuevo para parar.</span>
+          </div>
+        </form>
+        <div id="ia-status" class="mt-3 hidden"></div>
+        <div id="ia-preview" class="mt-4 hidden">
+          <h3 class="text-sm font-bold text-verde-700 mb-2">Vista previa — Puntos generados por IA</h3>
+          <p class="text-xs text-gray-400 mb-3">Revisa y edita antes de añadirlos. Se añadirán al final del orden del día.</p>
+          <div id="ia-puntos" class="space-y-3 mb-4"></div>
+          <div class="flex gap-2">
+            <button type="button" onclick="confirmarPuntosIA()" class="btn-primary text-sm">Añadir todos al acta</button>
+            <button type="button" onclick="document.getElementById('ia-preview').classList.add('hidden')" class="btn-outline text-sm">Descartar</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Puntos del orden del día */}
+      <div class="card p-6 mb-6">
+        <h2 class="text-base font-bold mb-3">Orden del día</h2>
+
+        {actaPuntos.length > 0 && (
+          <div class="space-y-4 mb-6">
+            {actaPuntos.map((p: any) => (
+              <div class="bg-gray-50 rounded-lg p-4">
+                <form method="POST" class="space-y-3">
+                  <input type="hidden" name="_action" value="update_punto" />
+                  <input type="hidden" name="punto_id" value={p.id} />
+                  <div class="flex items-start gap-3">
+                    <span class="text-verde-600 font-bold text-lg mt-1">{p.orden}º</span>
+                    <div class="flex-1 space-y-2">
+                      <input type="text" name="titulo" value={p.titulo} required class="input-field !py-2 text-sm font-semibold" />
+                      <textarea name="desarrollo" rows="3" class="input-field !py-2 text-sm" placeholder="Desarrollo y decisiones...">{p.desarrollo || ''}</textarea>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <select name="resultado_votacion" class="input-field !py-1.5 text-xs !w-auto">
+                          <option value="">Sin votación</option>
+                          {VOTACIONES.map(v => <option value={v} selected={p.resultado_votacion === v}>{v}</option>)}
+                        </select>
+                        <button type="submit" class="text-xs text-verde-600 hover:text-verde-800 font-medium">Guardar punto</button>
+                        <span class="flex-1"></span>
+                        <form method="POST" class="inline" onsubmit="return confirm('¿Eliminar este punto?')">
+                          <input type="hidden" name="_action" value="delete_punto" />
+                          <input type="hidden" name="punto_id" value={p.id} />
+                          <button type="submit" class="text-xs text-red-500 hover:text-red-700">Eliminar</button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Añadir punto */}
+        <form method="POST" class="bg-verde-50/50 rounded-lg p-4 space-y-3">
+          <input type="hidden" name="_action" value="add_punto" />
+          <input type="hidden" name="acta_id" value={editActa.id} />
+          <p class="text-sm font-semibold text-verde-700">+ Nuevo punto</p>
+          <input type="text" name="titulo" required class="input-field !py-2 text-sm" placeholder="Título del punto (ej: PROYECTOS PRESENTADOS AL AYUNTAMIENTO)" />
+          <textarea name="desarrollo" rows="3" class="input-field !py-2 text-sm" placeholder="Desarrollo (opcional, puedes rellenarlo después)"></textarea>
+          <div class="flex items-center gap-3">
+            <select name="resultado_votacion" class="input-field !py-1.5 text-xs !w-auto">
+              <option value="">Sin votación</option>
+              {VOTACIONES.map(v => <option value={v}>{v}</option>)}
+            </select>
+            <button type="submit" class="btn-primary text-sm !py-2">Añadir punto</button>
+          </div>
+        </form>
+      </div>
+
+      {/* Acciones del acta */}
+      <div class="card p-6 mb-6">
+        <h2 class="text-base font-bold mb-3">Acciones</h2>
+        <div class="flex flex-wrap gap-3">
+          {editActa.estado === 'borrador' ? (
+            <form method="POST">
+              <input type="hidden" name="_action" value="finalizar" />
+              <input type="hidden" name="id" value={editActa.id} />
+              <input type="hidden" name="hora_fin" value={editActa.hora_fin || ''} />
+              <button type="submit" class="btn-primary text-sm">Finalizar acta</button>
+            </form>
+          ) : (
+            <form method="POST">
+              <input type="hidden" name="_action" value="reabrir" />
+              <input type="hidden" name="id" value={editActa.id} />
+              <button type="submit" class="btn-outline text-sm">Reabrir como borrador</button>
+            </form>
+          )}
+          <button onclick={`window.open('/admin/actas/pdf?id=${editActa.id}', '_blank')`} class="btn-secondary text-sm" type="button">
+            Exportar PDF
+          </button>
+          <form method="POST" onsubmit="return confirm('¿Seguro? Se eliminará el acta y todos sus puntos.')">
+            <input type="hidden" name="_action" value="delete" />
+            <input type="hidden" name="id" value={editActa.id} />
+            <button type="submit" class="btn-danger">Eliminar acta</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  ) : showNew ? (
+    /* ====== NUEVA ACTA ====== */
+    <div>
+      <a href="/admin/actas" class="text-sm text-verde-600 hover:text-verde-700 mb-2 inline-block">← Volver</a>
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">Nueva acta</h1>
+
+      <form method="POST" class="space-y-6">
+        <input type="hidden" name="_action" value="create" />
+
+        <div class="card p-6 space-y-4">
+          <h2 class="text-base font-bold">Datos de la reunión</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="label-field">Nº de acta</label>
+              <input type="number" name="numero" class="input-field" value={siguienteNumero} />
+            </div>
+            <div>
+              <label class="label-field">Tipo</label>
+              <select name="tipo" class="input-field">
+                {TIPOS.map(t => <option value={t}>{TIPO_LABELS[t]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label class="label-field">Fecha *</label>
+              <input type="date" name="fecha" required class="input-field" value={new Date().toISOString().slice(0, 10)} />
+            </div>
+            <div>
+              <label class="label-field">Hora inicio</label>
+              <input type="time" name="hora_inicio" class="input-field" />
+            </div>
+          </div>
+          <div>
+            <label class="label-field">Lugar</label>
+            <input type="text" name="lugar" class="input-field" value="Sala del AMPA" />
+          </div>
+        </div>
+
+        <div class="card p-6">
+          <h2 class="text-base font-bold mb-3">Asistentes</h2>
+          {miembrosActivos && miembrosActivos.length > 0 ? (
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+              {miembrosActivos.map((m: any) => {
+                const cargo = cargoActualMiembro(m);
+                const esJunta = ['Presidente/a', 'Vicepresidente/a', 'Secretario/a', 'Tesorero/a'].includes(cargo);
+                return (
+                  <label class={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer hover:bg-verde-50/50 ${esJunta ? 'border-verde-200 bg-verde-50/30' : 'border-gray-200'}`}>
+                    <input type="checkbox" name="asistente" value={m.id} class="w-4 h-4 text-verde-600 rounded" checked={esJunta} />
+                    <div>
+                      <span class="font-medium text-sm">{m.nombre_completo}</span>
+                      {cargo && <span class="text-xs text-verde-600 ml-1">({cargo})</span>}
+                      {m.dni && <span class="text-xs text-gray-400 ml-1">{m.dni}</span>}
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
+            <p class="text-sm text-gray-400 mb-4">No hay miembros activos. <a href="/admin/miembros?nuevo" class="text-verde-600 underline">Añade miembros primero</a>.</p>
+          )}
+
+          <div id="invitados-container">
+            <p class="text-sm font-semibold text-gray-600 mb-2">Invitados (no están en la lista)</p>
+            <div id="invitados-list"></div>
+            <button type="button" onclick="addInvitado()" class="text-sm text-verde-600 hover:text-verde-700 font-medium mt-1">
+              + Añadir invitado
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Crear acta</button>
+      </form>
+    </div>
+
+  ) : (
+    /* ====== LISTADO DE ACTAS ====== */
+    <div>
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Actas</h1>
+        <a href="/admin/actas?nueva" class="btn-primary text-sm">+ Nueva acta</a>
+      </div>
+
+      {/* Filtro por curso */}
+      {cursos.length > 0 && (
+        <div class="flex flex-wrap gap-2 mb-4">
+          <a href="/admin/actas" class={`text-sm px-3 py-1.5 rounded-lg transition-colors ${!filtroCurso ? 'bg-verde-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            Todos
+          </a>
+          {cursos.map(c => (
+            <a href={`/admin/actas?curso=${c}`} class={`text-sm px-3 py-1.5 rounded-lg transition-colors ${filtroCurso === c ? 'bg-verde-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {c}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {actas && actas.length > 0 ? (
+        <div class="space-y-2">
+          {actas.map((a: any) => (
+            <a href={`/admin/actas?editar=${a.id}`} class="card p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:shadow-lg transition-shadow block">
+              <div class="flex items-center gap-3 flex-1 min-w-0">
+                <span class="text-2xl font-bold text-verde-600 w-12 text-center flex-shrink-0">
+                  {a.numero}
+                </span>
+                <div>
+                  <h3 class="font-bold text-gray-900">{TIPO_LABELS[a.tipo] || a.tipo}</h3>
+                  <p class="text-sm text-gray-500">
+                    {new Date(a.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {a.lugar && ` · ${a.lugar}`}
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-xs text-gray-400">{a.curso_escolar}</span>
+                <span class={`text-xs px-2 py-0.5 rounded-full font-medium ${a.estado === 'finalizada' ? 'bg-verde-50 text-verde-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                  {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div class="bg-gray-50 rounded-xl p-8 text-center">
+          <p class="text-gray-500">No hay actas todavía.</p>
+        </div>
+      )}
+    </div>
+  )}
+</Admin>
+
+<script is:inline>
+function addInvitado() {
+  const list = document.getElementById('invitados-list');
+  const div = document.createElement('div');
+  div.className = 'flex gap-2 mb-2 items-center';
+  div.innerHTML = `
+    <input type="text" name="invitado_nombre" placeholder="Nombre" class="input-field !py-2 text-sm flex-1" />
+    <input type="text" name="invitado_dni" placeholder="DNI (opcional)" class="input-field !py-2 text-sm w-32" />
+    <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 text-lg px-1">✕</button>
+  `;
+  list.appendChild(div);
+}
+
+// Dictado por voz — Web Speech API
+let _recognition = null;
+let _dictando = false;
+
+function toggleDictado() {
+  if (_dictando) {
+    pararDictado();
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('Tu navegador no soporta dictado por voz. Usa Chrome o Edge.');
+    return;
+  }
+
+  _recognition = new SpeechRecognition();
+  _recognition.lang = 'es-ES';
+  _recognition.continuous = true;
+  _recognition.interimResults = true;
+
+  const textarea = document.getElementById('notas-brutas');
+  const btn = document.getElementById('btn-dictar');
+  const status = document.getElementById('dictado-status');
+  let textoBase = textarea.value;
+  if (textoBase && !textoBase.endsWith('\n') && !textoBase.endsWith(' ')) {
+    textoBase += '\n';
+  }
+
+  _recognition.onresult = (event) => {
+    let interim = '';
+    let finalT = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalT += t;
+      } else {
+        interim += t;
+      }
+    }
+    if (finalT) {
+      textoBase += finalT + '. ';
+    }
+    textarea.value = textoBase + (interim ? '▸ ' + interim : '');
+  };
+
+  _recognition.onend = () => {
+    if (_dictando) {
+      _recognition.start();
+    }
+  };
+
+  _recognition.onerror = (e) => {
+    if (e.error === 'not-allowed') {
+      alert('Permiso de micrófono denegado. Permite el acceso al micrófono en tu navegador.');
+      pararDictado();
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      alert('Error de dictado: ' + e.error);
+      pararDictado();
+    }
+  };
+
+  _recognition.start();
+  _dictando = true;
+  btn.textContent = '⏹️ Parar dictado';
+  btn.classList.remove('btn-outline');
+  btn.classList.add('btn-danger');
+  status.classList.remove('hidden');
+}
+
+function pararDictado() {
+  if (_recognition) {
+    _dictando = false;
+    _recognition.stop();
+    _recognition = null;
+  }
+  const btn = document.getElementById('btn-dictar');
+  const status = document.getElementById('dictado-status');
+  btn.textContent = '🎙️ Dictar notas';
+  btn.classList.remove('btn-danger');
+  btn.classList.add('btn-outline');
+  status.classList.add('hidden');
+
+  // Limpiar marcadores interim
+  const textarea = document.getElementById('notas-brutas');
+  textarea.value = textarea.value.replace(/▸ .*$/, '').trim();
+}
+
+// IA — Formalizar notas brutas
+let _puntosIA = [];
+async function formalizarConIA() {
+  const notas = document.getElementById('notas-brutas').value.trim();
+  if (!notas) { alert('Escribe primero los apuntes de la reunión.'); return; }
+
+  const btn = document.getElementById('btn-formalizar');
+  const status = document.getElementById('ia-status');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+  status.className = 'mt-3 text-sm text-gray-500';
+  status.textContent = 'Enviando notas a la IA...';
+
+  try {
+    const sbUrl = document.querySelector('meta[name="sb-url"]')?.content;
+    const sbKey = document.querySelector('meta[name="sb-key"]')?.content;
+    const token = document.querySelector('meta[name="sb-token"]')?.content;
+
+    const res = await fetch(sbUrl + '/functions/v1/formalizar-acta', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': sbKey
+      },
+      body: JSON.stringify({
+        notas: notas,
+        asistentes: document.querySelector('[data-asistentes]')?.getAttribute('data-asistentes') || '',
+        tipo: document.querySelector('[data-tipo]')?.getAttribute('data-tipo') || 'ordinaria',
+        fecha: document.querySelector('[data-fecha]')?.getAttribute('data-fecha') || ''
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!Array.isArray(data)) throw new Error('Respuesta inesperada de la IA');
+
+    _puntosIA = data;
+    const container = document.getElementById('ia-puntos');
+    container.innerHTML = '';
+    data.forEach((p, i) => {
+      container.innerHTML += `
+        <div class="bg-verde-50 rounded-lg p-3 space-y-2">
+          <div class="flex items-start gap-2">
+            <span class="text-verde-600 font-bold">${i+1}º</span>
+            <div class="flex-1">
+              <input type="text" class="input-field !py-1.5 text-sm font-semibold ia-titulo" value="${p.titulo.replace(/"/g,'&quot;')}" />
+              <textarea rows="2" class="input-field !py-1.5 text-sm mt-1 ia-desarrollo">${p.desarrollo||''}</textarea>
+              <select class="input-field !py-1 text-xs !w-auto mt-1 ia-votacion">
+                <option value="">Sin votación</option>
+                <option value="Aprobado por mayoría absoluta" ${p.resultado_votacion==='Aprobado por mayoría absoluta'?'selected':''}>Aprobado por mayoría absoluta</option>
+                <option value="Aprobado por unanimidad" ${p.resultado_votacion==='Aprobado por unanimidad'?'selected':''}>Aprobado por unanimidad</option>
+                <option value="Rechazado" ${p.resultado_votacion==='Rechazado'?'selected':''}>Rechazado</option>
+                <option value="Informativo" ${p.resultado_votacion==='Informativo'?'selected':''}>Informativo</option>
+                <option value="Pendiente" ${p.resultado_votacion==='Pendiente'?'selected':''}>Pendiente</option>
+              </select>
+            </div>
+          </div>
+        </div>`;
+    });
+    document.getElementById('ia-preview').classList.remove('hidden');
+    status.textContent = `${data.length} puntos generados. Revísalos antes de añadirlos.`;
+    status.className = 'mt-3 text-sm text-verde-600';
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.className = 'mt-3 text-sm text-red-600';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Formalizar con IA';
+  }
+}
+
+async function confirmarPuntosIA() {
+  const titulos = document.querySelectorAll('.ia-titulo');
+  const desarrollos = document.querySelectorAll('.ia-desarrollo');
+  const votaciones = document.querySelectorAll('.ia-votacion');
+  const actaId = new URLSearchParams(location.search).get('editar');
+
+  for (let i = 0; i < titulos.length; i++) {
+    const form = new FormData();
+    form.set('_action', 'add_punto');
+    form.set('acta_id', actaId);
+    form.set('titulo', titulos[i].value);
+    form.set('desarrollo', desarrollos[i].value);
+    form.set('resultado_votacion', votaciones[i].value);
+    await fetch(location.href, { method: 'POST', body: form });
+  }
+  location.reload();
+}
+</script>

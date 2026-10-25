@@ -1,0 +1,316 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { requireSuperAdmin, getAdminWithRole } from '../../lib/auth';
+import { getServiceClient } from '../../lib/supabase';
+
+const session = await requireSuperAdmin(Astro.cookies);
+if (!session) return Astro.redirect('/admin/login');
+
+const service = getServiceClient();
+let mensaje = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = form.get('_action')?.toString();
+
+  if (action === 'update_rol') {
+    const adminId = form.get('admin_id')?.toString();
+    const rol = form.get('rol')?.toString();
+    if (adminId && rol) {
+      const { error: err } = await service
+        .from('admins')
+        .update({ rol })
+        .eq('id', parseInt(adminId));
+      if (err) error = 'Error al actualizar rol: ' + err.message;
+      else mensaje = 'Rol actualizado correctamente.';
+    }
+  }
+
+  if (action === 'save_permisos') {
+    const adminId = form.get('admin_id')?.toString();
+    if (adminId) {
+      // Obtener todas las rutas
+      const { data: rutas } = await service.from('rutas_admin').select('ruta').order('orden');
+      if (rutas) {
+        for (const r of rutas) {
+          const valor = form.get(`perm_${r.ruta}`)?.toString();
+          if (valor === 'default') {
+            // Borrar override
+            await service.from('permisos_rutas').delete()
+              .eq('admin_id', parseInt(adminId))
+              .eq('ruta', r.ruta);
+          } else if (valor === 'allow' || valor === 'deny') {
+            await service.from('permisos_rutas').upsert({
+              admin_id: parseInt(adminId),
+              ruta: r.ruta,
+              permitido: valor === 'allow',
+            }, { onConflict: 'admin_id,ruta' });
+          }
+        }
+        mensaje = 'Permisos guardados correctamente.';
+      }
+    }
+  }
+
+  if (action === 'create_admin') {
+    const email = form.get('email')?.toString()?.trim().toLowerCase();
+    const nombre = form.get('nombre')?.toString()?.trim();
+    const rol = form.get('rol')?.toString() || 'usuario';
+    const password = form.get('password')?.toString();
+
+    if (!email || !password) {
+      error = 'Email y contraseña son obligatorios.';
+    } else {
+      const { data: exists } = await service.from('admins').select('email').eq('email', email).single();
+      if (exists) {
+        error = 'Ese email ya es administrador.';
+      } else {
+      // Crear usuario en auth
+      const { data: authUser, error: authErr } = await service.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
+      if (authErr) {
+        error = 'Error al crear usuario: ' + authErr.message;
+      } else {
+        // Añadir a admins
+        const { error: adminErr } = await service.from('admins').insert({
+          email,
+          nombre: nombre || '',
+          rol,
+        });
+        if (adminErr) error = 'Usuario creado pero error al registrar como admin: ' + adminErr.message;
+        else mensaje = `Usuario ${email} creado con rol ${rol}.`;
+      }
+    }
+    }
+  }
+
+  if (action === 'reset_password') {
+    const adminEmail = form.get('admin_email')?.toString();
+    const newPassword = form.get('new_password')?.toString();
+    if (!adminEmail || !newPassword) {
+      error = 'Introduce la nueva contraseña.';
+    } else if (newPassword.length < 6) {
+      error = 'La contraseña debe tener al menos 6 caracteres.';
+    } else {
+      const { data: users } = await service.auth.admin.listUsers();
+      const user = users?.users?.find((u: any) => u.email === adminEmail);
+      if (user) {
+        const { error: updateErr } = await service.auth.admin.updateUserById(user.id, { password: newPassword });
+        if (updateErr) error = 'Error al cambiar la contraseña: ' + updateErr.message;
+        else mensaje = `Contraseña de ${adminEmail} actualizada.`;
+      } else {
+        error = 'Usuario no encontrado en el sistema de autenticación.';
+      }
+    }
+  }
+
+  if (action === 'delete_admin') {
+    const adminId = form.get('admin_id')?.toString();
+    const adminEmail = form.get('admin_email')?.toString();
+    if (adminId && adminEmail !== session.user.email) {
+      await service.from('admins').delete().eq('id', parseInt(adminId));
+      // Borrar de auth.users
+      const { data: users } = await service.auth.admin.listUsers();
+      const authUser = users?.users?.find((u: any) => u.email === adminEmail);
+      if (authUser) {
+        await service.auth.admin.deleteUser(authUser.id);
+      }
+      mensaje = 'Usuario eliminado.';
+    } else {
+      error = 'No puedes eliminarte a ti mismo.';
+    }
+  }
+}
+
+// Obtener datos
+const { data: admins } = await service.from('admins').select('*').order('id');
+const { data: rutas } = await service.from('rutas_admin').select('*').order('orden');
+const { data: todosPermisos } = await service.from('permisos_rutas').select('*');
+
+const permisosMap = new Map<string, boolean>();
+(todosPermisos || []).forEach((p: any) => {
+  permisosMap.set(`${p.admin_id}_${p.ruta}`, p.permitido);
+});
+
+const selectedAdminId = Astro.url.searchParams.get('admin');
+const selectedAdmin = selectedAdminId
+  ? (admins || []).find((a: any) => a.id === parseInt(selectedAdminId))
+  : null;
+---
+
+<Admin title="Permisos">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Gestión de permisos</h1>
+  </div>
+
+  {mensaje && <div class="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-3 mb-4 text-sm">{mensaje}</div>}
+  {error && <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">{error}</div>}
+
+  {/* Crear nuevo usuario */}
+  <div class="card p-6 mb-6">
+    <h2 class="text-base font-bold mb-4">Crear nuevo usuario</h2>
+    <form method="POST" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <input type="hidden" name="_action" value="create_admin" />
+      <div>
+        <label class="label-field">Email</label>
+        <input type="email" name="email" required class="input-field" placeholder="email@ejemplo.com" />
+      </div>
+      <div>
+        <label class="label-field">Nombre</label>
+        <input type="text" name="nombre" class="input-field" placeholder="Nombre completo" />
+      </div>
+      <div>
+        <label class="label-field">Contraseña</label>
+        <input type="password" name="password" required class="input-field" minlength="6" placeholder="Mínimo 6 caracteres" />
+      </div>
+      <div>
+        <label class="label-field">Rol</label>
+        <select name="rol" class="input-field">
+          <option value="usuario">Usuario</option>
+          <option value="admin">Administrador</option>
+          <option value="superadmin">Superadmin</option>
+        </select>
+      </div>
+      <div class="sm:col-span-2">
+        <button type="submit" class="btn-primary text-sm">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+
+  {/* Lista de usuarios */}
+  <div class="card p-6 mb-6">
+    <h2 class="text-base font-bold mb-4">Usuarios ({(admins || []).length})</h2>
+    <div class="space-y-3">
+      {(admins || []).map((admin: any) => (
+        <div class="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg">
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-sm truncate">{admin.nombre || admin.email}</p>
+            <p class="text-xs text-gray-400">{admin.email}</p>
+          </div>
+          <form method="POST" class="flex items-center gap-2">
+            <input type="hidden" name="_action" value="update_rol" />
+            <input type="hidden" name="admin_id" value={admin.id} />
+            <select name="rol" class="input-field !py-1 !px-2 text-xs w-32"
+              onchange="this.form.submit()">
+              <option value="superadmin" selected={admin.rol === 'superadmin'}>Superadmin</option>
+              <option value="admin" selected={admin.rol === 'admin'}>Admin</option>
+              <option value="usuario" selected={admin.rol === 'usuario'}>Usuario</option>
+            </select>
+          </form>
+          <a href={`/admin/permisos?admin=${admin.id}`}
+            class={`btn-outline text-xs !py-1 !px-3 ${selectedAdminId === String(admin.id) ? 'bg-verde-50 border-verde-500' : ''}`}>
+            Permisos
+          </a>
+          {admin.email !== session.user.email && (
+            <div class="flex items-center gap-2">
+              <details class="relative">
+                <summary class="btn-outline text-xs !px-3 !py-1 cursor-pointer list-none">Contraseña</summary>
+                <div class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-10 w-64">
+                  <form method="POST" class="space-y-2">
+                    <input type="hidden" name="_action" value="reset_password" />
+                    <input type="hidden" name="admin_email" value={admin.email} />
+                    <label class="label-field text-xs">Nueva contraseña</label>
+                    <input type="password" name="new_password" required minlength="6" class="input-field text-sm" placeholder="Mínimo 6 caracteres" />
+                    <button type="submit" class="btn-primary text-xs w-full">Guardar</button>
+                  </form>
+                </div>
+              </details>
+              <form method="POST" onsubmit="return confirm('¿Eliminar este usuario?')">
+                <input type="hidden" name="_action" value="delete_admin" />
+                <input type="hidden" name="admin_id" value={admin.id} />
+                <input type="hidden" name="admin_email" value={admin.email} />
+                <button type="submit" class="btn-danger text-xs !py-1 !px-3">Eliminar</button>
+              </form>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {/* Panel de permisos individuales */}
+  {selectedAdmin && (
+    <div class="card p-6 mb-6">
+      <h2 class="text-base font-bold mb-2">
+        Permisos de {selectedAdmin.nombre || selectedAdmin.email}
+        <span class={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+          selectedAdmin.rol === 'superadmin' ? 'bg-purple-100 text-purple-700' :
+          selectedAdmin.rol === 'admin' ? 'bg-blue-100 text-blue-700' :
+          'bg-gray-100 text-gray-600'
+        }`}>{selectedAdmin.rol}</span>
+      </h2>
+      <p class="text-xs text-gray-400 mb-4">
+        «Por defecto» usa el permiso del rol. Los overrides individuales tienen prioridad sobre el rol.
+      </p>
+      <form method="POST">
+        <input type="hidden" name="_action" value="save_permisos" />
+        <input type="hidden" name="admin_id" value={selectedAdmin.id} />
+        <div class="space-y-2">
+          {(rutas || []).map((ruta: any) => {
+            const key = `${selectedAdmin.id}_${ruta.ruta}`;
+            const override = permisosMap.has(key);
+            const overrideValue = override ? permisosMap.get(key) : null;
+            const rolPermitido = ruta.roles_permitidos.includes(selectedAdmin.rol);
+            const efectivo = override ? overrideValue : rolPermitido;
+
+            return (
+              <div class={`flex items-center gap-3 p-3 rounded-lg ${efectivo ? 'bg-green-50' : 'bg-red-50'}`}>
+                <span class="text-lg w-6 text-center">{ruta.icono}</span>
+                <span class="flex-1 text-sm font-medium">{ruta.nombre}</span>
+                <span class="text-xs text-gray-400 hidden sm:block">
+                  Rol: {rolPermitido ? '✅' : '❌'}
+                </span>
+                <select name={`perm_${ruta.ruta}`} class="input-field !py-1 !px-2 text-xs w-36">
+                  <option value="default" selected={!override}>
+                    Por defecto ({rolPermitido ? 'Sí' : 'No'})
+                  </option>
+                  <option value="allow" selected={override && overrideValue === true}>
+                    ✅ Permitir
+                  </option>
+                  <option value="deny" selected={override && overrideValue === false}>
+                    ❌ Denegar
+                  </option>
+                </select>
+              </div>
+            );
+          })}
+        </div>
+        <div class="mt-4">
+          <button type="submit" class="btn-primary text-sm">Guardar permisos</button>
+        </div>
+      </form>
+    </div>
+  )}
+
+  {/* Leyenda de roles */}
+  <div class="card p-6">
+    <h2 class="text-base font-bold mb-3">Permisos por defecto según rol</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left border-b">
+            <th class="py-2 pr-4">Sección</th>
+            <th class="py-2 px-3 text-center">Superadmin</th>
+            <th class="py-2 px-3 text-center">Admin</th>
+            <th class="py-2 px-3 text-center">Usuario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(rutas || []).map((ruta: any) => (
+            <tr class="border-b border-gray-100">
+              <td class="py-2 pr-4">{ruta.icono} {ruta.nombre}</td>
+              <td class="py-2 px-3 text-center">{ruta.roles_permitidos.includes('superadmin') ? '✅' : '❌'}</td>
+              <td class="py-2 px-3 text-center">{ruta.roles_permitidos.includes('admin') ? '✅' : '❌'}</td>
+              <td class="py-2 px-3 text-center">{ruta.roles_permitidos.includes('usuario') ? '✅' : '❌'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Admin>
