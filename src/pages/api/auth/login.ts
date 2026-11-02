@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { getServiceClient } from '../../../lib/supabase';
 
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const form = await request.formData();
@@ -10,30 +9,17 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     return redirect('/admin/login?error=Introduce+tu+correo+y+contraseña');
   }
 
-  const service = getServiceClient();
-
-  const { data: admin } = await service
-    .from('admins')
-    .select('email')
-    .eq('email', email)
-    .single();
-
-  if (!admin) {
-    return redirect('/admin/login?error=Este+correo+no+tiene+acceso+al+panel');
-  }
-
-  const { data: usersData } = await service.auth.admin.listUsers();
-  const user = usersData?.users?.find(u => u.email === email);
-
-  if (!user) {
-    return redirect('/admin/login?error=Usuario+no+encontrado.+Contacta+con+el+administrador.');
-  }
-
   const { createClient } = await import('@supabase/supabase-js');
   const authClient = createClient(
     import.meta.env.PUBLIC_SUPABASE_URL,
     import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
   );
+
+  const { data: adminRows } = await authClient.rpc('check_admin_email', { check_email: email });
+
+  if (!adminRows || adminRows.length === 0) {
+    return redirect('/admin/login?error=Este+correo+no+tiene+acceso+al+panel');
+  }
 
   const { data: signIn, error: signInErr } = await authClient.auth.signInWithPassword({
     email,
