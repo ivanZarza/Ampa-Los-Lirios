@@ -1,0 +1,280 @@
+
+  ╔══════════════════════════════════════════════════════════════╗
+  ║        AMPA LOS LIRIOS - GUÍA DE LA APP DE FONDOS           ║
+  ╚══════════════════════════════════════════════════════════════╝
+
+
+  Hola! Esta es la guía para usar la app donde llevamos las
+  cuentas del AMPA. Es muy fácil, vamos paso a paso.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO INSTALAR LA APP EN EL MÓVIL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Abre el enlace que te ha pasado Ivan en el navegador de tu
+  móvil y sigue estos pasos:
+
+  Si tienes ANDROID:
+    1. Abre el enlace en Chrome
+    2. Pulsa en los tres puntitos de arriba a la derecha (⋮)
+    3. Pulsa "Instalar app" o "Añadir a pantalla de inicio"
+    4. ¡Ya la tienes como una app más en tu móvil!
+
+  Si tienes iPHONE:
+    1. Abre el enlace en Safari (tiene que ser Safari)
+    2. Pulsa el botón de compartir (el cuadradito con la flecha ↑)
+    3. Busca "Añadir a pantalla de inicio"
+    4. Pulsa "Añadir"
+    5. ¡Listo! Ya tienes el icono en tu pantalla
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO ENTRAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Al abrir la app te sale un teclado con números. Solo tienes
+  que meter tu PIN:
+
+    Sandra  →  1111
+    Ana     →  2222
+    Jessy   →  3333
+    Ivan    →  8888
+
+  Si te equivocas, pulsa ⌫ para borrar y vuelve a intentarlo.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  LA PANTALLA PRINCIPAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Cuando entras ves la pantalla principal con:
+
+  • Las tres "cajas" de dinero y cuánto hay en cada una:
+      🏫 Dinero del AMPA
+      🎒 Dinero del Cole
+      💰 Dinero B
+
+  • Si hay algún gasto sin ticket, te avisa arriba con un
+    cartelito amarillo.
+
+  • Abajo del todo tienes 4 botones para moverte por la app:
+      Inicio · Registros · Categorías · Ajustes
+
+  Pulsa en cualquier caja de dinero para entrar en ella.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO APUNTAR QUE HA ENTRADO DINERO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Por ejemplo: han pagado las cuotas de octubre.
+
+    1. Pulsa en la caja donde va el dinero (ej: Dinero del AMPA)
+    2. Pulsa el botón verde (+) ENTRADA
+    3. Rellena:
+       - Cuánto dinero entra (ej: 150)
+       - De qué es (ej: "Cuotas octubre")
+       - Quién lo trae (ej: "María García") — opcional
+    4. Pulsa "Confirmar entrada"
+    5. Te sale un resumen con todo: cuánto había antes, cuánto
+       hay ahora, etc. Revísalo.
+    6. Si está bien, pulsa "Guardar"
+
+  ¡Ya está apuntado!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO APUNTAR UN GASTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Por ejemplo: hemos comprado material escolar.
+
+    1. Pulsa en la caja de donde sale el dinero
+    2. Pulsa el botón rojo (−) SALIDA
+    3. Rellena:
+       - Cuánto se ha gastado (ej: 45,50)
+       - En qué (ej: "Material escolar")
+       - A quién se le ha pagado — opcional
+    4. Si tienes el ticket a mano:
+       - Pulsa "Foto" para hacerle una foto
+       - O pulsa "Galería" para elegir una foto que ya tengas
+    5. Pulsa "Confirmar salida"
+    6. Revisa el resumen y pulsa "Guardar"
+
+  ⚠️ Si no le sacas foto al ticket, el gasto queda marcado
+  como "pendiente de ticket". No pasa nada, se puede añadir
+  después (ver más abajo).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO AÑADIR UN TICKET DESPUÉS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Si apuntaste un gasto pero no le pusiste el ticket en su
+  momento:
+
+    1. Busca el gasto en la lista (en la pantalla principal
+       salen los últimos, o ve a "Registros" abajo)
+    2. Pulsa sobre el gasto para ver el detalle
+    3. Pulsa el botón morado "Añadir ticket"
+    4. Hazle la foto al ticket
+    5. ¡Listo! Ya no sale como pendiente
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO VER LOS TICKETS PENDIENTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  En la pantalla principal, si hay gastos sin ticket, aparece
+  un aviso amarillo arriba que dice "X tickets pendientes".
+
+  Pulsa ahí y te lleva directo a la lista de gastos que les
+  falta el ticket.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO MOVER DINERO ENTRE CAJAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Por ejemplo: pasar 200€ del AMPA al Cole.
+
+    1. En la pantalla principal, pulsa "Transferencia"
+    2. Elige de dónde sale el dinero (ej: Dinero del AMPA)
+    3. Elige a dónde va (ej: Dinero del Cole)
+    4. Pon la cantidad (ej: 200)
+    5. Pulsa "Confirmar transferencia"
+    6. Te enseña cuánto queda en cada caja. Si está bien,
+       pulsa "Transferir"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO BUSCAR UN MOVIMIENTO ANTIGUO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    1. Pulsa "Registros" en la barra de abajo
+    2. Arriba tienes un buscador: escribe lo que buscas
+       (ej: "cuotas" o "María")
+    3. Puedes filtrar con los botones:
+       - Por tipo: Entradas / Salidas / Sin ticket
+       - Por caja: AMPA / Cole / B
+       - Por fechas: Desde / Hasta
+    4. Pulsa en cualquier movimiento para ver todos sus datos
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO CORREGIR O BORRAR UN MOVIMIENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Si te has equivocado en algo:
+
+    1. Busca el movimiento y pulsa sobre él
+    2. Pulsa "Editar"
+    3. Cambia lo que necesites
+    4. Pulsa "Guardar cambios"
+
+  Si hay que borrar un movimiento:
+
+    1. Busca el movimiento y pulsa sobre él
+    2. Pulsa "Borrar"
+    3. Te pide confirmación. Pulsa "Borrar" otra vez.
+
+  ⚠️ Borrar es definitivo. No se puede deshacer.
+  Todo queda registrado en la auditoría (quién borró qué
+  y cuándo).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CATEGORÍAS (OPCIONAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Las categorías sirven para organizar los movimientos por tema
+  (ej: "Excursiones", "Material", "Cuotas"). No es obligatorio
+  usarlas.
+
+  Para crear una:
+    1. Pulsa "Categorías" en la barra de abajo
+    2. Pulsa "Nueva categoría"
+    3. Escribe el nombre y pulsa "Crear"
+
+  Cuando apuntes un gasto o ingreso, te saldrá un desplegable
+  para elegir categoría si quieres.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CÓMO SACAR LOS DATOS PARA EXCEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    1. Pulsa "Exportar Excel" en la pantalla principal
+       (o ve a Ajustes → Exportar a Excel)
+    2. Si quieres solo una caja, selecciónala. Si no, deja
+       "Todos".
+    3. Pulsa "Descargar CSV"
+    4. Se descarga un archivo que puedes abrir con Excel
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅  DATOS SINCRONIZADOS EN LA NUBE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Los datos se guardan en la nube automáticamente. Todo lo que
+  anotes en tu móvil se ve al instante en los móviles de las
+  demás.
+
+  No hace falta hacer copias de seguridad ni pasarse archivos.
+  Si cambias de móvil, solo tienes que abrir la app y todo
+  estará ahí.
+
+  En Ajustes puedes ver si estás conectada:
+    🟢 "Conectado — datos sincronizados"
+    🟡 "Sin conexión — datos locales"
+
+  Si te sale el punto amarillo, no te preocupes: cuando vuelvas
+  a tener internet, los datos se sincronizan solos.
+
+  Si quieres una copia extra, siempre puedes usar "Exportar
+  Excel" para descargar un CSV con todos los movimientos.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PARA SALIR DE LA APP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    1. Ve a Ajustes
+    2. Pulsa "Cerrar sesión" (botón rojo al final)
+    3. No se borra nada, solo te lleva a la pantalla del PIN
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  DUDAS FRECUENTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ¿Funciona sin internet?
+  → Sí, puedes consultar los datos sin conexión. Los cambios
+    se sincronizan cuando vuelvas a tener internet.
+
+  ¿Lo que anoto se ve en los otros móviles?
+  → ¡Sí! Todo se sincroniza automáticamente en tiempo real.
+
+  ¿Puedo cambiar mi PIN?
+  → Sí. Ve a Ajustes, pulsa el lapicito junto a tu nombre,
+    pon el nuevo PIN y guarda.
+
+  ¿Cómo pongo el dinero que ya teníamos?
+  → Entra en la caja, pulsa Entrada y pon como descripción
+    "Saldo inicial" con la cantidad que había.
+
+  ¿Se puede usar en el ordenador?
+  → Sí, abre el mismo enlace en el navegador del ordenador.
+
+  ¿Qué pasa si borro algo sin querer?
+  → No se puede recuperar, pero queda registrado en la
+    auditoría (Ajustes → Registro de cambios) para saber
+    qué había.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ¿Alguna duda? Preguntad a Ivan 😊
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

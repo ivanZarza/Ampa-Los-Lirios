@@ -4,7 +4,7 @@ import cloudflare from '@astrojs/cloudflare';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  output: 'server',
+  output: 'static',
   adapter: cloudflare(),
   integrations: [
     tailwind(),
