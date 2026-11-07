@@ -128,9 +128,11 @@ const links = [
         if (menuOpen) {
           menu.style.maxHeight = menu.scrollHeight + 'px';
           menu.style.opacity = '1';
+          header?.setAttribute('data-scrolled', 'true');
         } else {
           menu.style.maxHeight = '0';
           menu.style.opacity = '0';
+          updateHeader();
         }
       }
       toggle.setAttribute('aria-expanded', String(menuOpen));

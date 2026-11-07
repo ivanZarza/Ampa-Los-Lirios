@@ -51,7 +51,7 @@ Datos: consulta `colaboradores` con `activo = true`.
 **Prerenderizada** (`export const prerender = true`).
 
 Tres tarjetas:
-1. Correo electronico (`ampaloslirios@gmail.com`) con enlace mailto.
+1. Correo electronico (`ampaloslirios22@gmail.com`) con enlace mailto.
 2. Como hacerse socio, con enlace a `/colaboradores`.
 3. Horario de atencion.
 
