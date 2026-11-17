@@ -19,7 +19,6 @@ if (Astro.request.method === 'POST') {
     const payload = {
       titulo: form.get('titulo')?.toString() || '',
       fecha: form.get('fecha')?.toString() || null,
-      evento_id: form.get('evento_id')?.toString() || null,
       publicado: form.get('publicado') === 'on',
     };
     if (!payload.titulo) {
