@@ -19,7 +19,7 @@ if (Astro.request.method === 'POST') {
     const payload = {
       titulo: form.get('titulo')?.toString() || '',
       fecha: form.get('fecha')?.toString() || null,
-      publicado: form.get('publicado') === 'on',
+      descripcion: form.get('descripcion')?.toString() || '',
     };
     if (!payload.titulo) {
       error = 'El título del álbum es obligatorio.';
@@ -35,7 +35,7 @@ if (Astro.request.method === 'POST') {
     const payload = {
       titulo: form.get('titulo')?.toString() || '',
       fecha: form.get('fecha')?.toString() || null,
-      publicado: form.get('publicado') === 'on',
+      descripcion: form.get('descripcion')?.toString() || '',
     };
     const { error: err } = await service.from('albumes').update(payload).eq('id', id);
     if (err) error = 'Error al actualizar: ' + err.message;
@@ -44,9 +44,9 @@ if (Astro.request.method === 'POST') {
 
   if (action === 'delete_album') {
     const id = form.get('id')?.toString();
-    const { data: fotos } = await service.from('fotos').select('ruta_storage').eq('album_id', id);
+    const { data: fotos } = await service.from('fotos').select('url').eq('album_id', id);
     if (fotos && fotos.length > 0) {
-      await service.storage.from('fotos').remove(fotos.map(f => f.ruta_storage));
+      await service.storage.from('fotos').remove(fotos.map(f => f.url));
     }
     const { error: err } = await service.from('albumes').delete().eq('id', id);
     if (err) error = 'Error al borrar: ' + err.message;
@@ -55,9 +55,9 @@ if (Astro.request.method === 'POST') {
 
   if (action === 'delete_foto') {
     const id = form.get('id')?.toString();
-    const { data: foto } = await service.from('fotos').select('ruta_storage').eq('id', id).single();
+    const { data: foto } = await service.from('fotos').select('url').eq('id', id).single();
     if (foto) {
-      await service.storage.from('fotos').remove([foto.ruta_storage]);
+      await service.storage.from('fotos').remove([foto.url]);
       const { error: err } = await service.from('fotos').delete().eq('id', id);
       if (err) error = 'Error al borrar la foto: ' + err.message;
       else mensaje = 'Foto borrada.';
@@ -68,8 +68,8 @@ if (Astro.request.method === 'POST') {
 const { data: albumes } = await service
   .from('albumes')
   .select(`
-    id, titulo, fecha, publicado,
-    fotos (id, ruta_storage, pie, orden)
+    id, titulo, fecha, descripcion,
+    fotos (id, url, descripcion, orden)
   `)
   .order('fecha', { ascending: false });
 
@@ -108,10 +108,6 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
           <label for="fecha" class="label-field">Fecha</label>
           <input type="date" id="fecha" name="fecha" class="input-field" />
         </div>
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="publicado" name="publicado" class="w-4 h-4 text-verde-600 rounded" checked />
-          <label for="publicado" class="text-sm font-medium text-gray-700">Publicado</label>
-        </div>
         <div class="flex gap-3">
           <button type="submit" class="btn-primary text-sm">Crear álbum</button>
           <a href="/admin/galeria" class="btn-outline text-sm">Cancelar</a>
@@ -126,7 +122,6 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
       <div class="flex items-center gap-3 mb-4">
         <a href="/admin/galeria" class="text-verde-600 hover:text-verde-700 font-medium text-sm">← Volver</a>
         <h2 class="text-xl font-bold text-gray-900">{selectedAlbum.titulo}</h2>
-        {!selectedAlbum.publicado && <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Borrador</span>}
       </div>
 
       {/* Editar álbum */}
@@ -142,10 +137,6 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
           <div>
             <label class="label-field">Fecha</label>
             <input type="date" name="fecha" class="input-field" value={selectedAlbum.fecha || ''} />
-          </div>
-          <div class="flex items-center gap-2">
-            <input type="checkbox" name="publicado" class="w-4 h-4 text-verde-600 rounded" checked={selectedAlbum.publicado} />
-            <label class="text-sm text-gray-700">Publicado</label>
           </div>
           <button type="submit" class="btn-primary text-sm">Guardar</button>
         </form>
@@ -186,8 +177,8 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
           {(selectedAlbum.fotos as any[]).sort((a: any, b: any) => a.orden - b.orden).map((foto: any) => (
             <div class="relative group">
               <img
-                src={`${bucketUrl}/${foto.ruta_storage}`}
-                alt={foto.pie || ''}
+                src={`${bucketUrl}/${foto.url}`}
+                alt={foto.descripcion || ''}
                 class="aspect-square object-cover rounded-lg w-full"
                 loading="lazy"
               />
@@ -220,7 +211,6 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <h3 class="font-bold text-gray-900">{a.titulo}</h3>
-                  {!a.publicado && <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Borrador</span>}
                 </div>
                 <p class="text-sm text-gray-500">
                   {a.fecha ? new Date(a.fecha).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : 'Sin fecha'}
@@ -320,7 +310,7 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
             },
             body: JSON.stringify({
               album_id: albumId,
-              ruta_storage: fileName,
+              url: fileName,
               orden: done,
             }),
           });

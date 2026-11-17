@@ -22,7 +22,6 @@ if (Astro.request.method === 'POST') {
       fecha_inicio: form.get('fecha_inicio')?.toString() || '',
       fecha_fin: form.get('fecha_fin')?.toString() || null,
       lugar: form.get('lugar')?.toString() || '',
-      publicado: form.get('publicado') === 'on',
     };
 
     if (!payload.titulo || !payload.fecha_inicio) {
@@ -118,17 +117,6 @@ const showForm = Astro.url.searchParams.has('nuevo') || editEvento;
           <input type="text" id="lugar" name="lugar" class="input-field" value={editEvento?.lugar || ''} />
         </div>
 
-        <div class="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="publicado"
-            name="publicado"
-            class="w-4 h-4 text-verde-600 rounded border-gray-300 focus:ring-verde-500"
-            checked={editEvento ? editEvento.publicado : true}
-          />
-          <label for="publicado" class="text-sm font-medium text-gray-700">Publicado (visible en la web)</label>
-        </div>
-
         <div class="flex gap-3 pt-2">
           <button type="submit" class="btn-primary text-sm">{editEvento ? 'Guardar cambios' : 'Crear evento'}</button>
           <a href="/admin/fiestas" class="btn-outline text-sm">Cancelar</a>
@@ -145,9 +133,6 @@ const showForm = Astro.url.searchParams.has('nuevo') || editEvento;
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <h3 class="font-bold text-gray-900 truncate">{e.titulo}</h3>
-              {!e.publicado && (
-                <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Borrador</span>
-              )}
             </div>
             <p class="text-sm text-gray-500">
               {new Date(e.fecha_inicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}

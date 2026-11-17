@@ -2,12 +2,10 @@
 interface Props {
   nombre: string;
   logo_url?: string | null;
-  descripcion_corta?: string | null;
-  ventaja_socios?: string | null;
-  web_url: string;
+  web_url?: string | null;
 }
 
-const { nombre, logo_url, descripcion_corta, ventaja_socios, web_url } = Astro.props;
+const { nombre, logo_url, web_url } = Astro.props;
 ---
 
 <article class="card card-hover p-6 flex flex-col items-center text-center h-full group">
@@ -25,26 +23,19 @@ const { nombre, logo_url, descripcion_corta, ventaja_socios, web_url } = Astro.p
     )}
   </div>
   <h3 class="text-lg font-bold text-gray-900 group-hover:text-verde-600 transition-colors duration-300">{nombre}</h3>
-  {descripcion_corta && (
-    <p class="text-gray-500 text-sm mt-2 leading-relaxed">{descripcion_corta}</p>
-  )}
-  {ventaja_socios && (
-    <div class="mt-4 bg-gradient-to-r from-malva-50 to-verde-50 text-malva-700 text-sm px-4 py-2.5 rounded-xl w-full
-                border border-malva-100 font-medium">
-      <span class="mr-1">🎫</span> {ventaja_socios}
+  {web_url && (
+    <div class="mt-auto pt-5">
+      <a
+        href={web_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-outline text-sm !px-5 !py-2.5 group-hover:bg-verde-50"
+      >
+        Visitar web
+        <svg class="w-4 h-4 ml-1.5 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+      </a>
     </div>
   )}
-  <div class="mt-auto pt-5">
-    <a
-      href={web_url}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="btn-outline text-sm !px-5 !py-2.5 group-hover:bg-verde-50"
-    >
-      Visitar web
-      <svg class="w-4 h-4 ml-1.5 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-      </svg>
-    </a>
-  </div>
 </article>

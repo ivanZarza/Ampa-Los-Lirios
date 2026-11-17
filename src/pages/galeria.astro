@@ -9,9 +9,8 @@ const { data: albumes } = await supabase
     id,
     titulo,
     fecha,
-    fotos (id, ruta_storage, pie, orden)
+    fotos (id, url, descripcion, orden)
   `)
-  .eq('publicado', true)
   .order('fecha', { ascending: false });
 
 const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos`;

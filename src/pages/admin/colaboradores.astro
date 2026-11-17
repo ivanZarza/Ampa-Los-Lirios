@@ -16,7 +16,7 @@ if (Astro.request.method === 'POST') {
   const action = form.get('_action')?.toString();
 
   if (action === 'create' || action === 'update') {
-    let logo_ruta = form.get('logo_ruta_actual')?.toString() || '';
+    let logo_url = form.get('logo_url_actual')?.toString() || '';
 
     const logoFile = form.get('logo') as File | null;
     if (logoFile && logoFile.size > 0) {
@@ -31,7 +31,7 @@ if (Astro.request.method === 'POST') {
       if (uploadErr) {
         error = 'Error al subir el logo: ' + uploadErr.message;
       } else {
-        logo_ruta = fileName;
+        logo_url = fileName;
       }
     }
 
@@ -43,17 +43,13 @@ if (Astro.request.method === 'POST') {
         const maxOrden = form.get('orden')?.toString();
         const payload = {
           nombre: form.get('nombre')?.toString() || '',
-          descripcion_corta: form.get('descripcion_corta')?.toString() || '',
-          ventaja_socios: form.get('ventaja_socios')?.toString() || '',
           web_url,
-          logo_ruta,
-          destacado: form.get('destacado') === 'on',
-          activo: form.get('activo') === 'on',
+          logo_url,
           orden: maxOrden ? parseInt(maxOrden) : 0,
         };
 
-        if (!payload.nombre || !payload.web_url) {
-          error = 'El nombre y la dirección web son obligatorios.';
+        if (!payload.nombre) {
+          error = 'El nombre es obligatorio.';
         } else if (action === 'create') {
           const { error: err } = await service.from('colaboradores').insert(payload);
           if (err) error = 'Error al crear: ' + err.message;
@@ -70,16 +66,9 @@ if (Astro.request.method === 'POST') {
 
   if (action === 'delete') {
     const id = form.get('id')?.toString();
-    const { error: err } = await service.from('colaboradores').update({ activo: false }).eq('id', id);
-    if (err) error = 'Error al ocultar: ' + err.message;
-    else mensaje = 'Colaborador ocultado.';
-  }
-
-  if (action === 'reactivar') {
-    const id = form.get('id')?.toString();
-    const { error: err } = await service.from('colaboradores').update({ activo: true }).eq('id', id);
-    if (err) error = 'Error al reactivar: ' + err.message;
-    else mensaje = 'Colaborador reactivado.';
+    const { error: err } = await service.from('colaboradores').delete().eq('id', id);
+    if (err) error = 'Error al borrar: ' + err.message;
+    else mensaje = 'Colaborador borrado.';
   }
 }
 
@@ -115,7 +104,7 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
       <form method="POST" enctype="multipart/form-data" class="space-y-4">
         <input type="hidden" name="_action" value={editColab ? 'update' : 'create'} />
         {editColab && <input type="hidden" name="id" value={editColab.id} />}
-        {editColab && <input type="hidden" name="logo_ruta_actual" value={editColab.logo_ruta || ''} />}
+        {editColab && <input type="hidden" name="logo_url_actual" value={editColab.logo_url || ''} />}
 
         <div>
           <label for="nombre" class="label-field">Nombre *</label>
@@ -123,42 +112,21 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
         </div>
 
         <div>
-          <label for="logo" class="label-field">Logo {editColab?.logo_ruta && '(deja vacío para mantener el actual)'}</label>
-          {editColab?.logo_ruta && (
-            <img src={`${bucketUrl}/${editColab.logo_ruta}`} alt="Logo actual" class="w-16 h-16 object-contain mb-2 rounded border" />
+          <label for="logo" class="label-field">Logo {editColab?.logo_url && '(deja vacío para mantener el actual)'}</label>
+          {editColab?.logo_url && (
+            <img src={`${bucketUrl}/${editColab.logo_url}`} alt="Logo actual" class="w-16 h-16 object-contain mb-2 rounded border" />
           )}
           <input type="file" id="logo" name="logo" accept="image/*" class="input-field" />
         </div>
 
         <div>
-          <label for="descripcion_corta" class="label-field">Descripción corta</label>
-          <textarea id="descripcion_corta" name="descripcion_corta" rows="2" class="input-field">{editColab?.descripcion_corta || ''}</textarea>
-        </div>
-
-        <div>
-          <label for="ventaja_socios" class="label-field">Ventaja para socios</label>
-          <input type="text" id="ventaja_socios" name="ventaja_socios" class="input-field" placeholder="Ej: 10% de descuento presentando el carnet" value={editColab?.ventaja_socios || ''} />
-        </div>
-
-        <div>
-          <label for="web_url" class="label-field">Dirección web * (debe empezar por https://)</label>
-          <input type="url" id="web_url" name="web_url" required class="input-field" placeholder="https://..." value={editColab?.web_url || ''} />
+          <label for="web_url" class="label-field">Dirección web (debe empezar por https://)</label>
+          <input type="url" id="web_url" name="web_url" class="input-field" placeholder="https://..." value={editColab?.web_url || ''} />
         </div>
 
         <div>
           <label for="orden" class="label-field">Orden (número)</label>
           <input type="number" id="orden" name="orden" class="input-field w-24" min="0" value={editColab?.orden ?? (colaboradores?.length || 0)} />
-        </div>
-
-        <div class="flex flex-wrap gap-4">
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="activo" name="activo" class="w-4 h-4 text-verde-600 rounded" checked={editColab ? editColab.activo : true} />
-            <label for="activo" class="text-sm font-medium text-gray-700">Activo (visible)</label>
-          </div>
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="destacado" name="destacado" class="w-4 h-4 text-verde-600 rounded" checked={editColab?.destacado || false} />
-            <label for="destacado" class="text-sm font-medium text-gray-700">Destacado (aparece en la portada)</label>
-          </div>
         </div>
 
         <div class="flex gap-3 pt-2">
@@ -173,37 +141,25 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
   {colaboradores && colaboradores.length > 0 ? (
     <div class="space-y-3">
       {colaboradores.map((c) => (
-        <div class:list={['card p-4 flex flex-col sm:flex-row sm:items-center gap-3', !c.activo && 'opacity-50']}>
+        <div class="card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div class="flex items-center gap-3 flex-1 min-w-0">
-            {c.logo_ruta ? (
-              <img src={`${bucketUrl}/${c.logo_ruta}`} alt="" class="w-10 h-10 object-contain rounded flex-shrink-0" />
+            {c.logo_url ? (
+              <img src={`${bucketUrl}/${c.logo_url}`} alt="" class="w-10 h-10 object-contain rounded flex-shrink-0" />
             ) : (
               <div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-400 flex-shrink-0">🏪</div>
             )}
             <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <h3 class="font-bold text-gray-900 truncate">{c.nombre}</h3>
-                {!c.activo && <span class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Oculto</span>}
-                {c.destacado && <span class="text-xs bg-malva-100 text-malva-700 px-2 py-0.5 rounded-full">Destacado</span>}
-              </div>
+              <h3 class="font-bold text-gray-900 truncate">{c.nombre}</h3>
               <p class="text-sm text-gray-500 truncate">{c.web_url}</p>
             </div>
           </div>
           <div class="flex gap-2 flex-shrink-0">
             <a href={`/admin/colaboradores?editar=${c.id}`} class="btn-outline text-sm !px-3 !py-1.5">Editar</a>
-            {c.activo ? (
-              <form method="POST" onsubmit="return confirm('¿Ocultar este colaborador de la web?')">
-                <input type="hidden" name="_action" value="delete" />
-                <input type="hidden" name="id" value={c.id} />
-                <button type="submit" class="btn-danger !px-3 !py-1.5">Ocultar</button>
-              </form>
-            ) : (
-              <form method="POST">
-                <input type="hidden" name="_action" value="reactivar" />
-                <input type="hidden" name="id" value={c.id} />
-                <button type="submit" class="btn-primary text-sm !px-3 !py-1.5">Reactivar</button>
-              </form>
-            )}
+            <form method="POST" onsubmit="return confirm('¿Borrar este colaborador?')">
+              <input type="hidden" name="_action" value="delete" />
+              <input type="hidden" name="id" value={c.id} />
+              <button type="submit" class="btn-danger !px-3 !py-1.5">Borrar</button>
+            </form>
           </div>
         </div>
       ))}

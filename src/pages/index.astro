@@ -8,7 +8,6 @@ const now = new Date().toISOString();
 const { data: proximoEvento } = await supabase
   .from('eventos')
   .select('*')
-  .eq('publicado', true)
   .gte('fecha_inicio', now)
   .order('fecha_inicio', { ascending: true })
   .limit(1)
@@ -16,19 +15,16 @@ const { data: proximoEvento } = await supabase
 
 const { data: colaboradores } = await supabase
   .from('colaboradores')
-  .select('id, nombre, logo_ruta, web_url')
-  .eq('activo', true)
+  .select('id, nombre, logo_url, web_url')
   .order('orden', { ascending: true });
 
 const { count: totalEventos } = await supabase
   .from('eventos')
-  .select('*', { count: 'exact', head: true })
-  .eq('publicado', true);
+  .select('*', { count: 'exact', head: true });
 
 const { count: totalAlbumes } = await supabase
   .from('albumes')
-  .select('*', { count: 'exact', head: true })
-  .eq('publicado', true);
+  .select('*', { count: 'exact', head: true });
 
 const totalColaboradores = colaboradores?.length || 0;
 
@@ -205,8 +201,8 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
                        grayscale hover:grayscale-0 opacity-50 hover:opacity-100 transition-all duration-500"
                 title={c.nombre}
               >
-                {c.logo_ruta ? (
-                  <img src={`${bucketUrl}/${c.logo_ruta}`} alt={`Logo de ${c.nombre}`}
+                {c.logo_url ? (
+                  <img src={`${bucketUrl}/${c.logo_url}`} alt={`Logo de ${c.nombre}`}
                        class="h-12 w-auto max-w-[120px] object-contain" loading="lazy" />
                 ) : (
                   <span class="text-sm font-bold text-gray-400 whitespace-nowrap">{c.nombre}</span>

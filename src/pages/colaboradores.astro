@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase';
 const { data: colaboradores } = await supabase
   .from('colaboradores')
   .select('*')
-  .eq('activo', true)
   .order('orden', { ascending: true });
 
 const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos`;
@@ -31,9 +30,7 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
         {colaboradores.map((c) => (
           <PartnerCard
             nombre={c.nombre}
-            logo_url={c.logo_ruta ? `${bucketUrl}/${c.logo_ruta}` : null}
-            descripcion_corta={c.descripcion_corta}
-            ventaja_socios={c.ventaja_socios}
+            logo_url={c.logo_url ? `${bucketUrl}/${c.logo_url}` : null}
             web_url={c.web_url}
           />
         ))}
