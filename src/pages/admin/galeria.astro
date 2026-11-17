@@ -242,6 +242,7 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
     albumId: selectedAlbum.id,
     supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
     supabaseKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+    accessToken: Astro.cookies.get('sb-access-token')?.value || '',
   }}>
     const MAX_DIM = 1600;
     const QUALITY = 0.8;
@@ -289,10 +290,13 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
           const blob = await processImage(file);
           const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
+          const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
+
           const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/fotos/${fileName}`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseKey}`,
+              'Authorization': authHeader,
+              'apikey': supabaseKey,
               'Content-Type': 'image/webp',
             },
             body: blob,
@@ -303,7 +307,7 @@ const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/publ
           const insertRes = await fetch(`${supabaseUrl}/rest/v1/fotos`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseKey}`,
+              'Authorization': authHeader,
               'apikey': supabaseKey,
               'Content-Type': 'application/json',
               'Prefer': 'return=minimal',
