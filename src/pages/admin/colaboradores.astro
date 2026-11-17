@@ -78,7 +78,7 @@ const { data: colaboradores } = await service
   .order('orden', { ascending: true });
 
 const editId = Astro.url.searchParams.get('editar');
-const editColab = editId ? colaboradores?.find(c => c.id === editId) : null;
+const editColab = editId ? colaboradores?.find(c => String(c.id) === editId) : null;
 const showForm = Astro.url.searchParams.has('nuevo') || editColab;
 const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/logos`;
 ---

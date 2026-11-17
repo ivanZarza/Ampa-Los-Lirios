@@ -74,7 +74,7 @@ const { data: albumes } = await service
   .order('fecha', { ascending: false });
 
 const albumId = Astro.url.searchParams.get('album');
-const selectedAlbum = albumId ? albumes?.find(a => a.id === albumId) : null;
+const selectedAlbum = albumId ? albumes?.find(a => String(a.id) === albumId) : null;
 const showNewAlbum = Astro.url.searchParams.has('nuevo');
 const bucketUrl = `${import.meta.env.PUBLIC_SUPABASE_URL}/storage/v1/object/public/fotos`;
 ---

@@ -52,7 +52,7 @@ const { data: eventos } = await service
   .order('fecha_inicio', { ascending: false });
 
 const editId = Astro.url.searchParams.get('editar');
-const editEvento = editId ? eventos?.find(e => e.id === editId) : null;
+const editEvento = editId ? eventos?.find(e => String(e.id) === editId) : null;
 const showForm = Astro.url.searchParams.has('nuevo') || editEvento;
 ---
 
